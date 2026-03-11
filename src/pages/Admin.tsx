@@ -769,7 +769,7 @@ export default function Admin() {
             </div>
             <div className="overflow-hidden rounded-xl border border-slate-200">
               <div className="grid grid-cols-5 bg-slate-50 text-sm font-bold text-slate-700">
-                <div className="px-4 py-3 border-r border-slate-200 flex items-center justify-center">
+                <div className="px-4 py-2 border-r border-slate-200 flex items-center justify-center">
                   <input
                     type="checkbox"
                     checked={allMembersSelected}
@@ -784,10 +784,10 @@ export default function Admin() {
                     aria-label="전체 회원 선택"
                   />
                 </div>
-                <div className="px-4 py-3 border-r border-slate-200">이름</div>
-                <div className="px-4 py-3 border-r border-slate-200">전화번호</div>
-                <div className="px-4 py-3 border-r border-slate-200">주소</div>
-                <div className="px-4 py-3">유형</div>
+                <div className="px-4 py-2 border-r border-slate-200">이름</div>
+                <div className="px-4 py-2 border-r border-slate-200">전화번호</div>
+                <div className="px-4 py-2 border-r border-slate-200">주소</div>
+                <div className="px-4 py-2">유형</div>
               </div>
               {dashboard.members.length === 0 ? (
                 <div className="px-4 py-6 text-sm text-slate-400">등록된 회원 정보가 없습니다.</div>
@@ -802,7 +802,7 @@ export default function Admin() {
                     }`}
                   >
                     <div
-                      className={`px-3 py-3 border-r flex items-center gap-2 ${
+                      className={`px-3 py-2 border-r flex items-center gap-2 ${
                         isSelected ? 'border-slate-300 bg-slate-200' : 'border-slate-100 bg-white'
                       }`}
                     >
@@ -845,27 +845,27 @@ export default function Admin() {
                       />
                     </div>
                     <div
-                      className={`px-4 py-3 border-r ${
+                      className={`px-4 py-2 border-r ${
                         isSelected ? 'border-slate-300 bg-slate-200 text-slate-900' : 'border-slate-100 bg-white text-slate-800'
                       }`}
                     >
                       {member.name}
                     </div>
                     <div
-                      className={`px-4 py-3 border-r ${
+                      className={`px-4 py-2 border-r ${
                         isSelected ? 'border-slate-300 bg-slate-200 text-slate-800' : 'border-slate-100 bg-white text-slate-700'
                       }`}
                     >
                       {member.phone}
                     </div>
                     <div
-                      className={`px-4 py-3 border-r ${
+                      className={`px-4 py-2 border-r ${
                         isSelected ? 'border-slate-300 bg-slate-200 text-slate-700' : 'border-slate-100 bg-white text-slate-500'
                       }`}
                     >
                       {member.address || '-'}
                     </div>
-                    <div className={isSelected ? 'px-4 py-3 bg-slate-200 text-slate-800' : 'px-4 py-3 bg-white text-slate-700'}>
+                    <div className={isSelected ? 'px-4 py-2 bg-slate-200 text-slate-800' : 'px-4 py-2 bg-white text-slate-700'}>
                       {member.type}
                     </div>
                   </div>
