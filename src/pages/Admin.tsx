@@ -792,7 +792,7 @@ export default function Admin() {
               {dashboard.members.length === 0 ? (
                 <div className="px-4 py-6 text-sm text-slate-400">등록된 회원 정보가 없습니다.</div>
               ) : (
-                dashboard.members.map((member) => {
+                dashboard.members.map((member, index) => {
                   const isSelected = selectedMemberIds.includes(member.id);
                   return (
                   <div
@@ -806,6 +806,14 @@ export default function Admin() {
                         isSelected ? 'border-slate-300 bg-slate-200' : 'border-slate-100 bg-white'
                       }`}
                     >
+                      <span
+                        className={`inline-flex h-7 min-w-7 items-center justify-center rounded-md border px-2 text-xs font-bold ${
+                          isSelected ? 'border-slate-400 bg-slate-300 text-slate-800' : 'border-slate-200 bg-slate-100 text-slate-600'
+                        }`}
+                        aria-label={`${member.name} 순번`}
+                      >
+                        {index + 1}
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleDeleteMember(member.id)}
