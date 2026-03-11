@@ -25,13 +25,11 @@ service cloud.firestore {
     }
 
     match /support_messages/{document=**} {
-      allow read, create: if true;
-      allow update, delete: if false;
+      allow read, create, update, delete: if true;
     }
 
     match /policy_proposals/{document=**} {
-      allow read, create: if true;
-      allow update, delete: if false;
+      allow read, create, update, delete: if true;
     }
 
     match /policy_reactions/{document=**} {
