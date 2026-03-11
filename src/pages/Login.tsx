@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Lock, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import {
   ADMIN_SESSION_STORAGE_KEY,
@@ -26,6 +26,10 @@ export default function Login() {
   const [signupPasswordConfirm, setSignupPasswordConfirm] = useState('');
   const [signupError, setSignupError] = useState('');
   const [isSignupSubmitting, setIsSignupSubmitting] = useState(false);
+  const [isCheckingSignupId, setIsCheckingSignupId] = useState(false);
+  const [signupIdCheckMessage, setSignupIdCheckMessage] = useState('');
+  const [isSignupIdChecked, setIsSignupIdChecked] = useState(false);
+  const [checkedSignupId, setCheckedSignupId] = useState('');
 
   const normalizeId = (raw: string) => raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
   const toHiddenEmail = (id: string) => `${normalizeId(id)}@myapp.com`;
@@ -81,6 +85,10 @@ export default function Login() {
       setSignupError('아이디는 영문/숫자로 입력해 주세요.');
       return;
     }
+    if (!isSignupIdChecked || checkedSignupId !== normalizedId) {
+      setSignupError('아이디 중복확인을 먼저 진행해 주세요.');
+      return;
+    }
     if (signupPassword.length < 6) {
       setSignupError('비밀번호는 6자 이상 입력해 주세요.');
       return;
@@ -101,12 +109,48 @@ export default function Login() {
       setSignupId('');
       setSignupPassword('');
       setSignupPasswordConfirm('');
+      setSignupIdCheckMessage('');
+      setIsSignupIdChecked(false);
+      setCheckedSignupId('');
       setError('');
       navigate('/admin');
     } catch {
       setSignupError('회원가입에 실패했습니다. 이미 사용 중인 아이디인지 확인해 주세요.');
     } finally {
       setIsSignupSubmitting(false);
+    }
+  };
+
+  const handleCheckSignupIdDuplicate = async () => {
+    const normalizedId = normalizeId(signupId);
+    setSignupError('');
+    setSignupIdCheckMessage('');
+    setIsSignupIdChecked(false);
+    setCheckedSignupId('');
+
+    if (!normalizedId) {
+      setSignupIdCheckMessage('아이디는 영문/숫자로 입력해 주세요.');
+      return;
+    }
+    if (normalizedId === 'admin') {
+      setSignupIdCheckMessage('사용할 수 없는 아이디입니다.');
+      return;
+    }
+
+    setIsCheckingSignupId(true);
+    try {
+      const methods = await fetchSignInMethodsForEmail(auth, toHiddenEmail(normalizedId));
+      if (methods.length > 0) {
+        setSignupIdCheckMessage('이미 사용 중인 아이디입니다.');
+        return;
+      }
+      setSignupIdCheckMessage('사용 가능한 아이디입니다.');
+      setIsSignupIdChecked(true);
+      setCheckedSignupId(normalizedId);
+    } catch {
+      setSignupIdCheckMessage('중복확인에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsCheckingSignupId(false);
     }
   };
 
@@ -222,14 +266,32 @@ export default function Login() {
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-700">아이디</label>
-                <input
-                  type="text"
-                  value={signupId}
-                  onChange={(e) => setSignupId(e.target.value)}
-                  className="mt-1 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
-                  placeholder="영문/숫자 아이디"
-                  required
-                />
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={signupId}
+                    onChange={(e) => {
+                      setSignupId(e.target.value);
+                      setSignupIdCheckMessage('');
+                      setIsSignupIdChecked(false);
+                      setCheckedSignupId('');
+                    }}
+                    className="w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
+                    placeholder="영문/숫자 아이디"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCheckSignupIdDuplicate}
+                    disabled={isCheckingSignupId}
+                    className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {isCheckingSignupId ? '확인중...' : '중복확인'}
+                  </button>
+                </div>
+                {signupIdCheckMessage ? (
+                  <p className={`mt-1 text-xs ${isSignupIdChecked ? 'text-emerald-600' : 'text-red-600'}`}>{signupIdCheckMessage}</p>
+                ) : null}
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-700">비밀번호</label>
