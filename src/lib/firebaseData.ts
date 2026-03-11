@@ -403,7 +403,7 @@ export async function getStats() {
 }
 
 export async function incrementVisitCount(cycleKey: string) {
-  if (!db || !isFirebaseConfigured) return;
+  if (!db || !isFirebaseConfigured) return false;
   try {
     const counterRef = doc(db, 'visitor_counters', cycleKey);
     await runTransaction(db, async (tx) => {
@@ -435,8 +435,10 @@ export async function incrementVisitCount(cycleKey: string) {
       cycleKey,
       createdAt: serverTimestamp(),
     });
+    return true;
   } catch {
     // Visitor counter must not block UI.
+    return false;
   }
 }
 

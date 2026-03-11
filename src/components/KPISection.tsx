@@ -36,8 +36,10 @@ export function KPISection() {
       const cycleKey = get6amCycleKey();
       const lastVisitCycle = localStorage.getItem(LAST_VISIT_CYCLE_KEY);
       if (lastVisitCycle !== cycleKey) {
-        await incrementVisitCount(cycleKey);
-        localStorage.setItem(LAST_VISIT_CYCLE_KEY, cycleKey);
+        const incremented = await incrementVisitCount(cycleKey);
+        if (incremented) {
+          localStorage.setItem(LAST_VISIT_CYCLE_KEY, cycleKey);
+        }
       }
 
       const data = await getStats();
