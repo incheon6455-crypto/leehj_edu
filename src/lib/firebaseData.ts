@@ -413,8 +413,8 @@ export async function incrementVisitCount(cycleKey: string) {
         tx.set(counterRef, {
           cycleKey,
           base,
-          count: 0,
-          total: base,
+          count: 1,
+          total: base + 1,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
