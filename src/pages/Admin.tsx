@@ -31,6 +31,25 @@ import {
   type MemberManagementItem,
 } from '../lib/firebaseData';
 
+declare global {
+  interface Window {
+    daum?: {
+      Postcode: new (options: {
+        oncomplete: (data: {
+          roadAddress: string;
+          jibunAddress: string;
+          zonecode: string;
+          bname: string;
+          buildingName: string;
+          apartment: 'Y' | 'N';
+        }) => void;
+      }) => {
+        open: () => void;
+      };
+    };
+  }
+}
+
 const ADMIN_PASSWORD = 'admin1234';
 const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
 const HERO_IMAGE_SLOT_COUNT = 4;
@@ -122,6 +141,7 @@ export default function Admin() {
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [isSupportMessagesModalOpen, setIsSupportMessagesModalOpen] = useState(false);
   const [isVisitorLogModalOpen, setIsVisitorLogModalOpen] = useState(false);
+  const [loadingAddressSearch, setLoadingAddressSearch] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [memberForm, setMemberForm] = useState({
     name: '',
@@ -131,6 +151,29 @@ export default function Admin() {
   });
 
   const heroFileInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  const ensureDaumPostcodeScript = () =>
+    new Promise<void>((resolve, reject) => {
+      if (window.daum?.Postcode) {
+        resolve();
+        return;
+      }
+
+      const existingScript = document.querySelector('script[data-daum-postcode="true"]') as HTMLScriptElement | null;
+      if (existingScript) {
+        existingScript.addEventListener('load', () => resolve(), { once: true });
+        existingScript.addEventListener('error', () => reject(new Error('주소 검색 스크립트를 불러오지 못했습니다.')), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+      script.async = true;
+      script.dataset.daumPostcode = 'true';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('주소 검색 스크립트를 불러오지 못했습니다.'));
+      document.head.appendChild(script);
+    });
 
   const loadHeroImages = async () => {
     try {
@@ -322,6 +365,33 @@ export default function Admin() {
       setMemberActionError('회원 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setSavingMember(false);
+    }
+  };
+
+  const handleMemberAddressLookup = async () => {
+    try {
+      setLoadingAddressSearch(true);
+      setMemberActionError('');
+      await ensureDaumPostcodeScript();
+      if (!window.daum?.Postcode) throw new Error('주소 검색 기능을 사용할 수 없습니다.');
+
+      new window.daum.Postcode({
+        oncomplete: (data) => {
+          const baseAddress = data.roadAddress || data.jibunAddress || '';
+          const extraAddress =
+            data.roadAddress && (data.bname || data.buildingName)
+              ? [data.bname, data.apartment === 'Y' ? data.buildingName : ''].filter(Boolean).join(', ')
+              : '';
+          const fullAddress = [baseAddress, extraAddress ? `(${extraAddress})` : '', data.zonecode ? `[${data.zonecode}]` : '']
+            .filter(Boolean)
+            .join(' ');
+          setMemberForm((prev) => ({ ...prev, address: fullAddress }));
+          setLoadingAddressSearch(false);
+        },
+      }).open();
+    } catch {
+      setLoadingAddressSearch(false);
+      setMemberActionError('주소 검색을 열지 못했습니다. 잠시 후 다시 시도해 주세요.');
     }
   };
 
@@ -1139,12 +1209,24 @@ export default function Admin() {
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-700">주소</label>
-                <input
-                  type="text"
-                  value={memberForm.address}
-                  onChange={(e) => setMemberForm((prev) => ({ ...prev, address: e.target.value }))}
-                  className="mt-1 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
-                />
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={memberForm.address}
+                    onChange={(e) => setMemberForm((prev) => ({ ...prev, address: e.target.value }))}
+                    onClick={handleMemberAddressLookup}
+                    placeholder="클릭해서 도로명 주소 검색"
+                    className="w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy cursor-pointer"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleMemberAddressLookup}
+                    disabled={loadingAddressSearch}
+                    className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {loadingAddressSearch ? '검색 준비중...' : '주소 검색'}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-700">유형</label>
