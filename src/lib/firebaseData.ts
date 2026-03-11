@@ -218,6 +218,15 @@ const DAILY_VISITOR_MIN = 2000;
 const DAILY_VISITOR_MAX = 3000;
 const POLICY_REACTION_MIN = 1000;
 const POLICY_REACTION_MAX = 2000;
+const ADMIN_SESSION_COLLECTION = 'admin_sessions';
+export const ADMIN_SESSION_STORAGE_KEY = 'admin_dashboard_session_token';
+
+function createAdminSessionToken() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
 
 function getRandomDailyBase() {
   return Math.floor(Math.random() * (DAILY_VISITOR_MAX - DAILY_VISITOR_MIN + 1)) + DAILY_VISITOR_MIN;
@@ -1049,6 +1058,36 @@ export async function deleteMemberAndRelatedContent(member: MemberManagementItem
     await batch.commit();
   } catch (error) {
     throw normalizeFirestoreError(error);
+  }
+}
+
+export async function createAdminSession() {
+  const token = createAdminSessionToken();
+  await setDoc(doc(db, ADMIN_SESSION_COLLECTION, token), {
+    active: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return token;
+}
+
+export async function verifyAdminSession(token: string) {
+  if (!token) return false;
+  try {
+    const snap = await getDoc(doc(db, ADMIN_SESSION_COLLECTION, token));
+    if (!snap.exists()) return false;
+    return snap.data()?.active !== false;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteAdminSession(token: string) {
+  if (!token) return;
+  try {
+    await deleteDoc(doc(db, ADMIN_SESSION_COLLECTION, token));
+  } catch {
+    // ignore session cleanup failure
   }
 }
 

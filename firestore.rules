@@ -54,5 +54,9 @@ service cloud.firestore {
       allow read, create, update: if true;
       allow delete: if false;
     }
+
+    match /admin_sessions/{document=**} {
+      allow read, create, update, delete: if true;
+    }
   }
 }

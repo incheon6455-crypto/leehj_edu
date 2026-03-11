@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Lock, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { ADMIN_SESSION_STORAGE_KEY, createAdminSession } from '../lib/firebaseData';
+
+const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,12 +12,19 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (username === 'admin' && password === 'admin1234') {
-      setError('');
-      navigate('/admin');
+      try {
+        const sessionToken = await createAdminSession();
+        localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
+        localStorage.setItem(ADMIN_SESSION_KEY, '1');
+        setError('');
+        navigate('/admin');
+      } catch {
+        setError('로그인 세션 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
       return;
     }
 
@@ -84,8 +94,6 @@ export default function Login() {
             로그인
           </button>
         </form>
-
-        <p className="text-xs text-slate-400 mt-6 text-center">테스트 계정: admin / admin1234</p>
       </motion.div>
     </div>
   );

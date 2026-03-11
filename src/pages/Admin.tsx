@@ -17,7 +17,10 @@ import {
 } from 'lucide-react';
 import { formatDate, stripHtmlTags } from '../lib/utils';
 import {
+  ADMIN_SESSION_STORAGE_KEY,
+  createAdminSession,
   createAdminMember,
+  deleteAdminSession,
   deleteEvent,
   deletePost,
   deleteHeroBackgroundImage,
@@ -26,6 +29,7 @@ import {
   getHeroBackgroundImages,
   saveHeroBackgroundImage,
   updateMemberBySource,
+  verifyAdminSession,
   type AdminDashboardData,
   type HeroBackgroundImageItem,
   type MemberManagementItem,
@@ -115,7 +119,7 @@ async function fileToDataUrl(file: File) {
 }
 
 export default function Admin() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === '1');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [dashboard, setDashboard] = useState<AdminDashboardData>(getEmptyDashboard);
@@ -205,25 +209,59 @@ export default function Admin() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+    const restoreSession = async () => {
+      const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+      if (!sessionToken) {
+        if (!cancelled) setIsLoggedIn(localStorage.getItem(ADMIN_SESSION_KEY) === '1');
+        return;
+      }
+      const isActive = await verifyAdminSession(sessionToken);
+      if (cancelled) return;
+      if (isActive) {
+        localStorage.setItem(ADMIN_SESSION_KEY, '1');
+        setIsLoggedIn(true);
+        return;
+      }
+      localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      setIsLoggedIn(false);
+    };
+    restoreSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isLoggedIn) return;
     loadDashboard();
     loadHeroImages();
   }, [isLoggedIn]);
 
-  const handleLogin = (event: React.FormEvent) => {
+  const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     if (password !== ADMIN_PASSWORD) {
       setLoginError('비밀번호가 일치하지 않습니다.');
       return;
     }
 
-    setLoginError('');
-    setPassword('');
-    localStorage.setItem(ADMIN_SESSION_KEY, '1');
-    setIsLoggedIn(true);
+    try {
+      const sessionToken = await createAdminSession();
+      localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
+      localStorage.setItem(ADMIN_SESSION_KEY, '1');
+      setLoginError('');
+      setPassword('');
+      setIsLoggedIn(true);
+    } catch {
+      setLoginError('로그인 세션 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+    await deleteAdminSession(sessionToken);
+    localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
     localStorage.removeItem(ADMIN_SESSION_KEY);
     setIsLoggedIn(false);
     setDashboard(getEmptyDashboard());

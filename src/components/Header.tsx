@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Heart } from 'lucide-react';
 import { CONFIG } from '../config';
 import { cn } from '../lib/utils';
+import { ADMIN_SESSION_STORAGE_KEY, verifyAdminSession } from '../lib/firebaseData';
 
 const navItems = [
   { name: '홈', path: '/' },
@@ -27,13 +28,31 @@ export function Header() {
   }, []);
 
   useEffect(() => {
-    const syncAdminMode = () => {
-      setIsAdminMode(localStorage.getItem(ADMIN_SESSION_KEY) === '1');
+    let cancelled = false;
+    const syncAdminMode = async () => {
+      const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+      if (!sessionToken) {
+        if (!cancelled) setIsAdminMode(false);
+        return;
+      }
+
+      const active = await verifyAdminSession(sessionToken);
+      if (cancelled) return;
+      if (active) {
+        localStorage.setItem(ADMIN_SESSION_KEY, '1');
+        setIsAdminMode(true);
+        return;
+      }
+      localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      setIsAdminMode(false);
     };
+
     syncAdminMode();
     window.addEventListener('storage', syncAdminMode);
     window.addEventListener('focus', syncAdminMode);
     return () => {
+      cancelled = true;
       window.removeEventListener('storage', syncAdminMode);
       window.removeEventListener('focus', syncAdminMode);
     };
