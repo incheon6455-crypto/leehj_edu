@@ -320,7 +320,7 @@ export default function Home() {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] gap-12">
             <div className="space-y-6">
               <div className="mb-8 flex items-center justify-between gap-3">
                 <h3 className="text-xl font-bold border-l-4 border-gold pl-4 text-white">최신 소식</h3>
