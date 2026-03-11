@@ -72,6 +72,11 @@ function isNewsLikeUrl(url: string) {
   }
 }
 
+function buildNewsThumbnailUrl(url: string) {
+  // WordPress mShots provides a best-effort webpage screenshot for link previews.
+  return `https://s.wordpress.com/mshots/v1/${encodeURIComponent(url)}?w=1200&h=675`;
+}
+
 function extractYouTubeVideoId(url: string) {
   try {
     const parsed = new URL(url);
@@ -116,6 +121,19 @@ function buildArticleEmbedNode(url: string) {
   wrapper.style.borderRadius = '10px';
   wrapper.style.background = '#f8fafc';
 
+  const thumb = document.createElement('img');
+  thumb.src = buildNewsThumbnailUrl(url);
+  thumb.alt = '기사 썸네일';
+  thumb.loading = 'lazy';
+  thumb.style.width = '100%';
+  thumb.style.maxWidth = '100%';
+  thumb.style.height = 'auto';
+  thumb.style.maxHeight = '280px';
+  thumb.style.objectFit = 'cover';
+  thumb.style.borderRadius = '8px';
+  thumb.style.display = 'block';
+  thumb.style.marginBottom = '8px';
+
   const iframe = document.createElement('iframe');
   iframe.src = url;
   iframe.loading = 'lazy';
@@ -143,6 +161,7 @@ function buildArticleEmbedNode(url: string) {
   link.style.fontWeight = '700';
   link.style.color = '#9f1239';
 
+  wrapper.appendChild(thumb);
   wrapper.appendChild(iframe);
   wrapper.appendChild(link);
   return wrapper;
@@ -219,6 +238,7 @@ function transformContentWithVideoEmbeds(rawHtml: string) {
       } else if (isNewsLikeUrl(foundUrl)) {
         fragment.appendChild(buildArticleEmbedNode(foundUrl));
         fragment.appendChild(document.createElement('br'));
+        thumbnailCandidates.push(buildNewsThumbnailUrl(foundUrl));
       } else {
         fragment.appendChild(document.createTextNode(foundUrl));
       }
