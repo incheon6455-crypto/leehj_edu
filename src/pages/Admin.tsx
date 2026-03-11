@@ -147,6 +147,7 @@ export default function Admin() {
     name: '',
     phone: '',
     address: '',
+    addressDetail: '',
     type: '응원메시지' as '응원메시지' | '정책제안' | '일반',
   });
 
@@ -291,6 +292,7 @@ export default function Admin() {
       name: target.name,
       phone: target.phone === '-' ? '' : target.phone,
       address: target.address === '-' ? '' : target.address,
+      addressDetail: '',
       type: target.type,
     });
     setMemberActionError('');
@@ -319,6 +321,7 @@ export default function Admin() {
       name: target.name,
       phone: target.phone === '-' ? '' : target.phone,
       address: target.address === '-' ? '' : target.address,
+      addressDetail: '',
       type: target.type,
     });
     setMemberActionError('');
@@ -327,17 +330,18 @@ export default function Admin() {
 
   const openCreateMemberModal = () => {
     setEditingMember(null);
-    setMemberForm({ name: '', phone: '', address: '', type: '응원메시지' });
+    setMemberForm({ name: '', phone: '', address: '', addressDetail: '', type: '응원메시지' });
     setMemberActionError('');
     setIsMemberModalOpen(true);
   };
 
   const handleSubmitMember = async (event: React.FormEvent) => {
     event.preventDefault();
+    const combinedAddress = [memberForm.address.trim(), memberForm.addressDetail.trim()].filter(Boolean).join(' ');
     const payload = {
       name: memberForm.name.trim(),
       phone: memberForm.phone.trim(),
-      address: memberForm.address.trim() || '-',
+      address: combinedAddress || '-',
       type: memberForm.type,
     };
 
@@ -1227,6 +1231,13 @@ export default function Admin() {
                     {loadingAddressSearch ? '검색 준비중...' : '주소 검색'}
                   </button>
                 </div>
+                <input
+                  type="text"
+                  value={memberForm.addressDetail}
+                  onChange={(e) => setMemberForm((prev) => ({ ...prev, addressDetail: e.target.value }))}
+                  placeholder="상세 주소를 입력해 주세요."
+                  className="mt-2 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
+                />
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-700">유형</label>
