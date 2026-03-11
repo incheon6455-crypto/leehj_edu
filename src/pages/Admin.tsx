@@ -18,6 +18,7 @@ import {
 import { formatDate, stripHtmlTags } from '../lib/utils';
 import {
   createAdminMember,
+  deleteEvent,
   deletePost,
   deleteHeroBackgroundImage,
   deleteMemberAndRelatedContent,
@@ -117,6 +118,8 @@ export default function Admin() {
   const [deletingHeroSlot, setDeletingHeroSlot] = useState<number | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [isPostsModalOpen, setIsPostsModalOpen] = useState(false);
+  const [isEventsModalOpen, setIsEventsModalOpen] = useState(false);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [isVisitorLogModalOpen, setIsVisitorLogModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [memberForm, setMemberForm] = useState({
@@ -181,6 +184,7 @@ export default function Admin() {
     setDashboard(getEmptyDashboard());
     setSelectedMemberIds([]);
     setIsPostsModalOpen(false);
+    setIsEventsModalOpen(false);
     setIsVisitorLogModalOpen(false);
     setPassword('');
     setError('');
@@ -481,6 +485,19 @@ export default function Admin() {
     }
   };
 
+  const handleDeleteEvent = async (eventId: string) => {
+    setDeletingEventId(eventId);
+    setError('');
+    try {
+      await deleteEvent(eventId);
+      await loadDashboard();
+    } catch {
+      setError('행사 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setDeletingEventId(null);
+    }
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 [&_button:enabled]:cursor-pointer [&_button:disabled]:cursor-not-allowed">
@@ -583,6 +600,20 @@ export default function Admin() {
                 </div>
                 <p className="text-3xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
                 <p className="mt-2 text-xs text-blue-600">클릭해서 게시물 보기</p>
+              </button>
+            ) : index === 2 ? (
+              <button
+                key={metric.label}
+                type="button"
+                onClick={() => setIsEventsModalOpen(true)}
+                className="text-left bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-md transition"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-slate-500">{metric.label}</p>
+                  <metric.icon className={metric.color} size={18} />
+                </div>
+                <p className="text-3xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
+                <p className="mt-2 text-xs text-emerald-600">클릭해서 행사 보기</p>
               </button>
             ) : (
               <div key={metric.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
@@ -908,6 +939,58 @@ export default function Admin() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEventsModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 px-4 py-6 flex items-center justify-center"
+          onClick={() => setIsEventsModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-2xl bg-white border border-slate-100 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">전체 행사</h3>
+                <p className="text-xs text-slate-500 mt-0.5">총 {dashboard.totals.events.toLocaleString()}개</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEventsModalOpen(false)}
+                className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+                aria-label="행사 모달 닫기"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              {dashboard.upcomingEvents.length === 0 ? (
+                <p className="text-sm text-slate-400">행사가 없습니다.</p>
+              ) : (
+                dashboard.upcomingEvents.map((eventItem) => (
+                  <div key={eventItem.id} className="rounded-xl border border-slate-100 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-bold text-slate-900">{eventItem.title}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEvent(eventItem.id)}
+                        disabled={deletingEventId === eventItem.id}
+                        className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                      >
+                        <Trash2 size={12} />
+                        {deletingEventId === eventItem.id ? '삭제 중' : '삭제'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">{formatDate(eventItem.date)} · {eventItem.location}</p>
+                    <p className="mt-2 text-sm text-slate-700">{stripHtmlTags(eventItem.description).slice(0, 140) || '-'}</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

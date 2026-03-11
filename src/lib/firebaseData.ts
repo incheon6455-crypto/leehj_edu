@@ -406,6 +406,15 @@ export async function getEvents(): Promise<EventItem[]> {
   }
 }
 
+export async function deleteEvent(eventId: string) {
+  if (!db || !isFirebaseConfigured) return;
+  try {
+    await deleteDoc(doc(db, 'events', eventId));
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function getStats() {
   const cycleKey = get6amCycleKey();
   if (!db || !isFirebaseConfigured) {
@@ -617,7 +626,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       getCountFromServer(visitorsQuery),
       getDocs(visitorsQuery),
       getDocs(query(postsRef, orderBy('date', 'desc'))),
-      getDocs(query(eventsRef, orderBy('date', 'asc'), limit(5))),
+      getDocs(query(eventsRef, orderBy('date', 'asc'))),
       getDocs(query(supportRef, orderBy('createdAt', 'desc'), limit(7))),
       getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
       getDocs(query(proposalsRef, orderBy('createdAt', 'desc'))),
