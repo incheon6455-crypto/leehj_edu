@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Calendar, Tag, ArrowRight, X, ImagePlus } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { formatDate, stripHtmlTags } from '../lib/utils';
 import { createPost, getPosts, type Post } from '../lib/firebaseData';
 
@@ -236,7 +236,9 @@ export default function Posts() {
   const postContentHtmlRef = useRef('');
   const inlineImageInputRef = useRef<HTMLInputElement | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const isLatestOnly = new URLSearchParams(location.search).get('source') === 'latest';
+  const openPostIdFromQuery = new URLSearchParams(location.search).get('postId') || '';
 
   useEffect(() => {
     getPosts()
@@ -252,6 +254,22 @@ export default function Posts() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!openPostIdFromQuery) return;
+    if (posts.length === 0) return;
+    const target = posts.find((item) => item.id === openPostIdFromQuery);
+    if (!target) return;
+
+    setSelectedPost(target);
+    const params = new URLSearchParams(location.search);
+    params.delete('postId');
+    const nextSearch = params.toString();
+    navigate(
+      { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '' },
+      { replace: true }
+    );
+  }, [openPostIdFromQuery, posts, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (loading || visibleCount >= posts.length) return;

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, ChevronRight, X } from 'lucide-react';
 import { CONFIG } from '../config';
 import { stripHtmlTags } from '../lib/utils';
@@ -146,6 +146,7 @@ function buildPostDetailHtml(content: string) {
 }
 
 export default function Home() {
+  const navigate = useNavigate();
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [heroImageIndex, setHeroImageIndex] = useState(0);
   const [heroImages, setHeroImages] = useState<string[]>(DEFAULT_HERO_IMAGES);
@@ -410,7 +411,7 @@ export default function Home() {
                 {latestPosts.map((post, i) => (
                   <div
                     key={post.id}
-                    onClick={() => setSelectedPost(post)}
+                    onClick={() => navigate(`/posts?source=latest&postId=${encodeURIComponent(post.id)}`)}
                     className="bg-white/10 border border-white/20 backdrop-blur-sm p-3 hover:bg-white/15 transition-colors cursor-pointer group shadow-lg shadow-black/20"
                   >
                     <div className="w-full h-24 rounded-lg overflow-hidden mb-2">
