@@ -7,6 +7,31 @@ import {
   submitPolicyProposal,
 } from '../lib/firebaseData';
 
+const POLICY_VOTER_ID_KEY = 'policy_reaction_voter_id';
+const POLICY_VOTED_IDS_KEY = 'policy_reaction_voted_ids';
+
+function getOrCreatePolicyVoterId() {
+  const existing = localStorage.getItem(POLICY_VOTER_ID_KEY);
+  if (existing) return existing;
+  const generated =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `voter-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  localStorage.setItem(POLICY_VOTER_ID_KEY, generated);
+  return generated;
+}
+
+function getStoredVotedPolicyIds() {
+  const raw = localStorage.getItem(POLICY_VOTED_IDS_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 const policies = [
   {
     id: 'policy-basic-literacy',
@@ -59,6 +84,7 @@ export default function Policies() {
   const [submitError, setSubmitError] = useState('');
   const [reactionCounts, setReactionCounts] = useState<Record<string, number>>({});
   const [reactionInProgress, setReactionInProgress] = useState<string | null>(null);
+  const [votedPolicyIds, setVotedPolicyIds] = useState<string[]>(() => getStoredVotedPolicyIds());
   const [proposalForm, setProposalForm] = useState({
     proposer: '',
     title: '',
@@ -82,6 +108,8 @@ export default function Policies() {
       cancelled = true;
     };
   }, []);
+
+  const hasVoted = (policyId: string) => votedPolicyIds.includes(policyId);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -229,18 +257,32 @@ export default function Policies() {
                   type="button"
                   onClick={async () => {
                     if (!selectedPolicy || reactionInProgress) return;
+                    if (hasVoted(selectedPolicy.id)) return;
                     setReactionInProgress(selectedPolicy.id);
-                    const nextCount = await incrementPolicyReactionCount(selectedPolicy.id);
-                    if (nextCount > 0) {
-                      setReactionCounts((prev) => ({ ...prev, [selectedPolicy.id]: nextCount }));
+                    const voterId = getOrCreatePolicyVoterId();
+                    const result = await incrementPolicyReactionCount(selectedPolicy.id, voterId);
+                    if (result.count > 0) {
+                      setReactionCounts((prev) => ({ ...prev, [selectedPolicy.id]: result.count }));
+                    }
+                    if (result.incremented || result.count > 0) {
+                      setVotedPolicyIds((prev) => {
+                        if (prev.includes(selectedPolicy.id)) return prev;
+                        const next = [...prev, selectedPolicy.id];
+                        localStorage.setItem(POLICY_VOTED_IDS_KEY, JSON.stringify(next));
+                        return next;
+                      });
                     }
                     setReactionInProgress(null);
                   }}
-                  disabled={reactionInProgress === selectedPolicy.id}
+                  disabled={reactionInProgress === selectedPolicy.id || hasVoted(selectedPolicy.id)}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-burgundy text-white text-sm font-semibold hover:bg-burgundy/90 transition-colors disabled:opacity-60"
                 >
                   <ThumbsUp size={16} />
-                  {reactionInProgress === selectedPolicy.id ? '반영 중...' : '공감하기'}
+                  {reactionInProgress === selectedPolicy.id
+                    ? '반영 중...'
+                    : hasVoted(selectedPolicy.id)
+                      ? '공감 완료'
+                      : '공감하기'}
                 </button>
               </div>
             </motion.div>

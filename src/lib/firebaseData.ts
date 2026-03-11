@@ -55,6 +55,11 @@ export interface PolicyReactionCountMap {
   [policyId: string]: number;
 }
 
+export interface PolicyReactionIncrementResult {
+  count: number;
+  incremented: boolean;
+}
+
 export interface MemberManagementItem {
   id: string;
   name: string;
@@ -202,9 +207,17 @@ function getRecentVisitorDayBuckets(cycleStart: Date, days: number) {
 
 const DAILY_VISITOR_MIN = 2000;
 const DAILY_VISITOR_MAX = 3000;
+const POLICY_REACTION_MIN = 1000;
+const POLICY_REACTION_MAX = 2000;
 
 function getRandomDailyBase() {
   return Math.floor(Math.random() * (DAILY_VISITOR_MAX - DAILY_VISITOR_MIN + 1)) + DAILY_VISITOR_MIN;
+}
+
+function getRandomPolicyReactionBase() {
+  return (
+    Math.floor(Math.random() * (POLICY_REACTION_MAX - POLICY_REACTION_MIN + 1)) + POLICY_REACTION_MIN
+  );
 }
 
 function parseNonNegativeNumber(value: unknown, fallback: number) {
@@ -797,10 +810,23 @@ export async function getPolicyReactionCounts(policyIds: string[]): Promise<Poli
   try {
     const entries = await Promise.all(
       policyIds.map(async (policyId) => {
-        const snap = await getDoc(doc(db, 'policy_reactions', policyId));
-        if (!snap.exists()) return [policyId, 0] as const;
-        const data = snap.data() as Record<string, unknown>;
-        return [policyId, parseNonNegativeNumber(data.count, 0)] as const;
+        const reactionRef = doc(db, 'policy_reactions', policyId);
+        return runTransaction(db, async (tx) => {
+          const snap = await tx.get(reactionRef);
+          if (!snap.exists()) {
+            const base = getRandomPolicyReactionBase();
+            tx.set(reactionRef, {
+              policyId,
+              count: base,
+              voters: [],
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+            return [policyId, base] as const;
+          }
+          const data = snap.data() as Record<string, unknown>;
+          return [policyId, parseNonNegativeNumber(data.count, getRandomPolicyReactionBase())] as const;
+        });
       })
     );
 
@@ -816,33 +842,42 @@ export async function getPolicyReactionCounts(policyIds: string[]): Promise<Poli
   }
 }
 
-export async function incrementPolicyReactionCount(policyId: string) {
-  if (!db || !isFirebaseConfigured) return 0;
+export async function incrementPolicyReactionCount(policyId: string, voterId: string): Promise<PolicyReactionIncrementResult> {
+  if (!db || !isFirebaseConfigured) return { count: 0, incremented: false };
 
   try {
     const reactionRef = doc(db, 'policy_reactions', policyId);
     return await runTransaction(db, async (tx) => {
       const snap = await tx.get(reactionRef);
       if (!snap.exists()) {
+        const base = getRandomPolicyReactionBase();
         tx.set(reactionRef, {
           policyId,
-          count: 1,
+          count: base + 1,
+          voters: [voterId],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-        return 1;
+        return { count: base + 1, incremented: true };
       }
 
       const data = snap.data() as Record<string, unknown>;
+      const voters = Array.isArray(data.voters)
+        ? data.voters.filter((item): item is string => typeof item === 'string')
+        : [];
+      if (voters.includes(voterId)) {
+        return { count: parseNonNegativeNumber(data.count, 0), incremented: false };
+      }
       const nextCount = parseNonNegativeNumber(data.count, 0) + 1;
       tx.update(reactionRef, {
         count: nextCount,
+        voters: [...voters, voterId],
         updatedAt: serverTimestamp(),
       });
-      return nextCount;
+      return { count: nextCount, incremented: true };
     });
   } catch {
-    return 0;
+    return { count: 0, incremented: false };
   }
 }
 
