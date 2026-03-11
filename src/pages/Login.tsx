@@ -72,13 +72,49 @@ export default function Login() {
 
     try {
       const credential = await signInWithEmailAndPassword(auth, toHiddenEmail(normalizedId), password);
-      await upsertAdminAccount(credential.user.uid, normalizedId);
-      const profile = await getAdminAccountProfile(credential.user.uid);
-      await applyAdminSession(profile || { username: normalizedId, name: normalizedId, role: 'admin' });
+
+      try {
+        await upsertAdminAccount(credential.user.uid, normalizedId);
+      } catch (profileError) {
+        console.error('admin profile upsert failed after login', profileError);
+      }
+
+      let resolvedProfile: Partial<AdminIdentityProfile> = { username: normalizedId, name: normalizedId, role: 'admin' };
+      try {
+        const profile = await getAdminAccountProfile(credential.user.uid);
+        if (profile) resolvedProfile = profile;
+      } catch (profileLoadError) {
+        console.error('admin profile read failed after login', profileLoadError);
+      }
+
+      try {
+        await applyAdminSession(resolvedProfile);
+      } catch (sessionError) {
+        console.error('admin session create failed after login', sessionError);
+        localStorage.setItem(ADMIN_SESSION_KEY, '1');
+        localStorage.setItem(
+          ADMIN_PROFILE_STORAGE_KEY,
+          JSON.stringify({
+            username: String(resolvedProfile.username || normalizedId),
+            name: String(resolvedProfile.name || normalizedId),
+            role: String(resolvedProfile.role || 'admin'),
+          })
+        );
+      }
+
       setError('');
       navigate('/admin');
-    } catch {
-      setError('아이디 또는 비밀번호가 올바르지 않습니다.');
+    } catch (error) {
+      const authError = error as FirebaseError;
+      if (
+        authError?.code === 'auth/user-not-found' ||
+        authError?.code === 'auth/wrong-password' ||
+        authError?.code === 'auth/invalid-credential'
+      ) {
+        setError('아이디 또는 비밀번호가 올바르지 않습니다.');
+      } else {
+        setError('로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
     }
   };
 
