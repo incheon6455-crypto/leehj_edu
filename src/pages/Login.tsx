@@ -14,6 +14,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSignupOpen, setIsSignupOpen] = useState(false);
+  const [signupName, setSignupName] = useState('');
   const [signupId, setSignupId] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupPasswordConfirm, setSignupPasswordConfirm] = useState('');
@@ -62,8 +63,13 @@ export default function Login() {
 
   const handleSignup = async (event: React.FormEvent) => {
     event.preventDefault();
+    const trimmedName = signupName.trim();
     const normalizedId = normalizeId(signupId);
 
+    if (!trimmedName) {
+      setSignupError('이름을 입력해 주세요.');
+      return;
+    }
     if (!normalizedId) {
       setSignupError('아이디는 영문/숫자로 입력해 주세요.');
       return;
@@ -81,9 +87,10 @@ export default function Login() {
     setSignupError('');
     try {
       const credential = await createUserWithEmailAndPassword(auth, toHiddenEmail(normalizedId), signupPassword);
-      await upsertAdminAccount(credential.user.uid, normalizedId);
+      await upsertAdminAccount(credential.user.uid, normalizedId, trimmedName);
       await applyAdminSession();
       setIsSignupOpen(false);
+      setSignupName('');
       setSignupId('');
       setSignupPassword('');
       setSignupPasswordConfirm('');
@@ -195,6 +202,17 @@ export default function Login() {
               </button>
             </div>
             <form onSubmit={handleSignup} className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-slate-700">이름</label>
+                <input
+                  type="text"
+                  value={signupName}
+                  onChange={(e) => setSignupName(e.target.value)}
+                  className="mt-1 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
+                  placeholder="이름 입력"
+                  required
+                />
+              </div>
               <div>
                 <label className="text-sm font-semibold text-slate-700">아이디</label>
                 <input

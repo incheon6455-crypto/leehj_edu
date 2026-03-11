@@ -1091,12 +1091,13 @@ export async function deleteAdminSession(token: string) {
   }
 }
 
-export async function upsertAdminAccount(uid: string, username: string) {
+export async function upsertAdminAccount(uid: string, username: string, name?: string) {
   if (!uid) return;
   await setDoc(
     doc(db, 'admin_accounts', uid),
     {
       username,
+      name: (name || '').trim() || username,
       role: 'admin',
       updatedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
