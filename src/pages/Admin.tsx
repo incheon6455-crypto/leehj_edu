@@ -6,10 +6,8 @@ import {
   FileText,
   FileUp,
   LayoutDashboard,
-  LogOut,
   MessageSquareText,
   Pencil,
-  RefreshCw,
   Trash2,
   UserPlus,
   Users,
@@ -258,23 +256,6 @@ export default function Admin() {
     } catch {
       setLoginError('로그인 세션 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     }
-  };
-
-  const handleLogout = async () => {
-    const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
-    await deleteAdminSession(sessionToken);
-    localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
-    localStorage.removeItem(ADMIN_SESSION_KEY);
-    localStorage.removeItem(ADMIN_PROFILE_STORAGE_KEY);
-    setIsLoggedIn(false);
-    setDashboard(getEmptyDashboard());
-    setSelectedMemberIds([]);
-    setIsPostsModalOpen(false);
-    setIsEventsModalOpen(false);
-    setIsSupportMessagesModalOpen(false);
-    setIsVisitorLogModalOpen(false);
-    setPassword('');
-    setError('');
   };
 
   useEffect(() => {
@@ -665,23 +646,7 @@ export default function Admin() {
               마지막 업데이트: {formatDate(dashboard.updatedAt)}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={loadDashboard}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-60"
-            >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 새로고침
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-burgundy text-white hover:bg-burgundy-dark transition-colors"
-            >
-              <LogOut size={16} /> 로그아웃
-            </button>
-          </div>
+          <div />
         </div>
 
         {error ? (

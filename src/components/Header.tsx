@@ -175,14 +175,6 @@ export function Header() {
                 >
                   {item.name}
                 </Link>
-                {item.path === '/contact' && isAdminMode ? (
-                  <Link
-                    to="/login"
-                    className="inline-flex items-center px-3 py-1.5 rounded-full bg-burgundy/10 text-burgundy text-xs font-bold hover:bg-burgundy/20 transition-colors"
-                  >
-                    관리자 모드
-                  </Link>
-                ) : null}
               </React.Fragment>
             ))}
             {isAdminMode && adminProfile ? (
@@ -249,15 +241,6 @@ export function Header() {
                 >
                   {item.name}
                 </Link>
-                {item.path === '/contact' && isAdminMode ? (
-                  <Link
-                    to="/login"
-                    className="inline-flex items-center justify-center mt-1 ml-3 px-3 py-1.5 rounded-full bg-burgundy/10 text-burgundy text-xs font-bold"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    관리자 모드
-                  </Link>
-                ) : null}
               </React.Fragment>
             ))}
             {isAdminMode && adminProfile ? (
