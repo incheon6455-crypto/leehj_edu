@@ -374,6 +374,15 @@ export async function createPost(payload: {
   }
 }
 
+export async function deletePost(postId: string) {
+  if (!db || !isFirebaseConfigured) return;
+  try {
+    await deleteDoc(doc(db, 'posts', postId));
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function getEvents(): Promise<EventItem[]> {
   if (!db || !isFirebaseConfigured) return FALLBACK_EVENTS;
   try {

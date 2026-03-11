@@ -18,6 +18,7 @@ import {
 import { formatDate, stripHtmlTags } from '../lib/utils';
 import {
   createAdminMember,
+  deletePost,
   deleteHeroBackgroundImage,
   deleteMemberAndRelatedContent,
   getAdminDashboardData,
@@ -114,6 +115,7 @@ export default function Admin() {
   >(Array.from({ length: HERO_IMAGE_SLOT_COUNT }, () => null));
   const [savingHeroSlot, setSavingHeroSlot] = useState<number | null>(null);
   const [deletingHeroSlot, setDeletingHeroSlot] = useState<number | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [isPostsModalOpen, setIsPostsModalOpen] = useState(false);
   const [isVisitorLogModalOpen, setIsVisitorLogModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -466,6 +468,19 @@ export default function Admin() {
     }
   };
 
+  const handleDeletePost = async (postId: string) => {
+    setDeletingPostId(postId);
+    setError('');
+    try {
+      await deletePost(postId);
+      await loadDashboard();
+    } catch {
+      setError('게시물 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 [&_button:enabled]:cursor-pointer [&_button:disabled]:cursor-not-allowed">
@@ -805,7 +820,18 @@ export default function Admin() {
               ) : (
                 dashboard.recentPosts.map((post) => (
                   <div key={post.id} className="rounded-xl border border-slate-100 p-4">
-                    <p className="text-sm font-bold text-slate-900">{post.title}</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-bold text-slate-900">{post.title}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePost(post.id)}
+                        disabled={deletingPostId === post.id}
+                        className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                      >
+                        <Trash2 size={12} />
+                        {deletingPostId === post.id ? '삭제 중' : '삭제'}
+                      </button>
+                    </div>
                     <p className="text-xs text-slate-500 mt-1">{formatDate(post.date)}</p>
                     <p className="mt-2 text-sm text-slate-700">{stripHtmlTags(post.content).slice(0, 140) || '-'}</p>
                   </div>
