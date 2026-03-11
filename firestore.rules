@@ -32,6 +32,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /policy_reactions/{document=**} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
     match /admin_members/{document=**} {
       allow read, create, update, delete: if true;
     }

@@ -1,14 +1,53 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, ChevronRight, X } from 'lucide-react';
-import { submitPolicyProposal } from '../lib/firebaseData';
+import { Search, ChevronRight, X, ThumbsUp } from 'lucide-react';
+import {
+  getPolicyReactionCounts,
+  incrementPolicyReactionCount,
+  submitPolicyProposal,
+} from '../lib/firebaseData';
 
 const policies = [
-  { id: 1, category: '기초학력', title: '초등 기초학력 책임 전담제 도입', desc: '모든 아이가 읽기, 쓰기, 셈하기를 완벽히 마스터할 수 있도록 전담 교사를 배치하겠습니다.' },
-  { id: 2, category: '디지털전환', title: '1인 1스마트 기기 및 AI 튜터 지원', desc: '디지털 격차 없는 학습 환경을 위해 모든 학생에게 기기를 지원하고 맞춤형 AI 학습 도구를 제공합니다.' },
-  { id: 3, category: '인성/안전', title: '학교 폭력 제로, 마음 건강 센터 확대', desc: '전문 상담 인력을 대폭 확충하여 아이들의 마음을 돌보고 안전한 학교 환경을 조성하겠습니다.' },
-  { id: 4, category: '교원복지', title: '교권 보호 및 행정 업무 경감', desc: '선생님이 가르치는 일에만 집중할 수 있도록 행정 지원 시스템을 혁신하고 법적 보호를 강화합니다.' },
-  { id: 5, category: '특수교육', title: '특수학교 신설 및 통합 교육 지원 강화', desc: '장애 학생들의 학습권을 보장하기 위해 특수 교육 인프라를 확충하고 맞춤형 지원을 확대합니다.' },
+  {
+    id: 'policy-basic-literacy',
+    category: '기초학력',
+    title: '초등 기초학력 책임 전담제 도입',
+    desc: '모든 아이가 읽기, 쓰기, 셈하기를 완벽히 마스터할 수 있도록 전담 교사를 배치하겠습니다.',
+    content:
+      '기초학력 전담교사를 학교 단위로 배치하고, 학년 초 진단-중간 점검-학년 말 성취 확인으로 이어지는 3단계 지원 체계를 구축합니다. 읽기·쓰기·셈하기 맞춤형 보충 프로그램을 방과후 및 학습클리닉과 연계해 운영하겠습니다.',
+  },
+  {
+    id: 'policy-digital-ai',
+    category: '디지털전환',
+    title: '1인 1스마트 기기 및 AI 튜터 지원',
+    desc: '디지털 격차 없는 학습 환경을 위해 모든 학생에게 기기를 지원하고 맞춤형 AI 학습 도구를 제공합니다.',
+    content:
+      '학생 개별 학습 데이터를 기반으로 AI 튜터를 도입해 과목별 취약 단원을 자동 추천하고, 교사는 대시보드로 학습 진도를 관리할 수 있도록 하겠습니다. 가정 형편에 따른 디지털 격차가 없도록 기기와 네트워크 접근성을 함께 지원합니다.',
+  },
+  {
+    id: 'policy-safety-counsel',
+    category: '인성/안전',
+    title: '학교 폭력 제로, 마음 건강 센터 확대',
+    desc: '전문 상담 인력을 대폭 확충하여 아이들의 마음을 돌보고 안전한 학교 환경을 조성하겠습니다.',
+    content:
+      '학교별 상담 인력 확충과 외부 전문기관 연계를 통해 위기 학생을 조기에 발견하고 개입하겠습니다. 학교폭력 예방교육, 회복적 생활교육, 보호자 상담 프로그램을 통합 운영해 안전하고 존중받는 학교 문화를 만들겠습니다.',
+  },
+  {
+    id: 'policy-teacher-rights',
+    category: '교원복지',
+    title: '교권 보호 및 행정 업무 경감',
+    desc: '선생님이 가르치는 일에만 집중할 수 있도록 행정 지원 시스템을 혁신하고 법적 보호를 강화합니다.',
+    content:
+      '교사가 수업과 생활교육에 집중할 수 있도록 공문·행정 절차를 간소화하고, 반복 업무는 통합 플랫폼으로 자동화하겠습니다. 교권침해 발생 시 즉시 대응 가능한 법률지원 체계를 마련하겠습니다.',
+  },
+  {
+    id: 'policy-special-education',
+    category: '특수교육',
+    title: '특수학교 신설 및 통합 교육 지원 강화',
+    desc: '장애 학생들의 학습권을 보장하기 위해 특수 교육 인프라를 확충하고 맞춤형 지원을 확대합니다.',
+    content:
+      '지역 수요를 반영해 특수학교와 특수학급을 단계적으로 확대하고, 통합학급에는 보조인력과 전문교재를 지원하겠습니다. 학생의 장애 특성과 발달 단계에 맞춘 개별화교육계획(IEP) 실행력을 높이겠습니다.',
+  },
 ];
 
 export default function Policies() {
@@ -18,6 +57,8 @@ export default function Policies() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>({});
+  const [reactionInProgress, setReactionInProgress] = useState<string | null>(null);
   const [proposalForm, setProposalForm] = useState({
     proposer: '',
     title: '',
@@ -27,6 +68,20 @@ export default function Policies() {
   const filteredPolicies = policies.filter(
     (p) => p.title.includes(searchQuery) || p.desc.includes(searchQuery)
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    const syncReactionCounts = async () => {
+      const counts = await getPolicyReactionCounts(policies.map((policy) => policy.id));
+      if (!cancelled) {
+        setReactionCounts(counts);
+      }
+    };
+    syncReactionCounts();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -117,7 +172,9 @@ export default function Policies() {
                       </div>
                     ))}
                   </div>
-                  <span className="text-xs text-slate-400 font-medium">1,240명의 시민이 공감합니다</span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    {(reactionCounts[policy.id] ?? 0).toLocaleString()}명의 시민이 공감합니다
+                  </span>
                 </div>
               </motion.div>
             ))}
@@ -162,7 +219,30 @@ export default function Policies() {
                 </button>
               </div>
               <h2 className="text-2xl font-bold text-slate-900 mb-4">{selectedPolicy.title}</h2>
-              <p className="text-slate-600 leading-relaxed">{selectedPolicy.desc}</p>
+              <p className="text-slate-600 leading-relaxed mb-4">{selectedPolicy.desc}</p>
+              <p className="text-slate-700 leading-relaxed whitespace-pre-line">{selectedPolicy.content}</p>
+              <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between gap-4">
+                <span className="text-sm text-slate-500">
+                  {(reactionCounts[selectedPolicy.id] ?? 0).toLocaleString()}명이 공감했습니다
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!selectedPolicy || reactionInProgress) return;
+                    setReactionInProgress(selectedPolicy.id);
+                    const nextCount = await incrementPolicyReactionCount(selectedPolicy.id);
+                    if (nextCount > 0) {
+                      setReactionCounts((prev) => ({ ...prev, [selectedPolicy.id]: nextCount }));
+                    }
+                    setReactionInProgress(null);
+                  }}
+                  disabled={reactionInProgress === selectedPolicy.id}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-burgundy text-white text-sm font-semibold hover:bg-burgundy/90 transition-colors disabled:opacity-60"
+                >
+                  <ThumbsUp size={16} />
+                  {reactionInProgress === selectedPolicy.id ? '반영 중...' : '공감하기'}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

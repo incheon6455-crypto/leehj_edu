@@ -51,6 +51,10 @@ export interface PolicyProposalItem {
   createdAt: string;
 }
 
+export interface PolicyReactionCountMap {
+  [policyId: string]: number;
+}
+
 export interface MemberManagementItem {
   id: string;
   name: string;
@@ -779,6 +783,66 @@ export async function submitPolicyProposal(payload: { proposer: string; title: s
     } satisfies PolicyProposalItem;
   } catch (error) {
     throw normalizeFirestoreError(error);
+  }
+}
+
+export async function getPolicyReactionCounts(policyIds: string[]): Promise<PolicyReactionCountMap> {
+  if (!db || !isFirebaseConfigured) {
+    return policyIds.reduce<PolicyReactionCountMap>((acc, policyId) => {
+      acc[policyId] = 0;
+      return acc;
+    }, {});
+  }
+
+  try {
+    const entries = await Promise.all(
+      policyIds.map(async (policyId) => {
+        const snap = await getDoc(doc(db, 'policy_reactions', policyId));
+        if (!snap.exists()) return [policyId, 0] as const;
+        const data = snap.data() as Record<string, unknown>;
+        return [policyId, parseNonNegativeNumber(data.count, 0)] as const;
+      })
+    );
+
+    return entries.reduce<PolicyReactionCountMap>((acc, [policyId, count]) => {
+      acc[policyId] = count;
+      return acc;
+    }, {});
+  } catch {
+    return policyIds.reduce<PolicyReactionCountMap>((acc, policyId) => {
+      acc[policyId] = 0;
+      return acc;
+    }, {});
+  }
+}
+
+export async function incrementPolicyReactionCount(policyId: string) {
+  if (!db || !isFirebaseConfigured) return 0;
+
+  try {
+    const reactionRef = doc(db, 'policy_reactions', policyId);
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(reactionRef);
+      if (!snap.exists()) {
+        tx.set(reactionRef, {
+          policyId,
+          count: 1,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        return 1;
+      }
+
+      const data = snap.data() as Record<string, unknown>;
+      const nextCount = parseNonNegativeNumber(data.count, 0) + 1;
+      tx.update(reactionRef, {
+        count: nextCount,
+        updatedAt: serverTimestamp(),
+      });
+      return nextCount;
+    });
+  } catch {
+    return 0;
   }
 }
 
