@@ -77,6 +77,10 @@ function buildNewsThumbnailUrl(url: string) {
   return `https://s.wordpress.com/mshots/v1/${encodeURIComponent(url)}?w=1200&h=675`;
 }
 
+function buildFallbackThumbnailUrl(seed: string) {
+  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/450`;
+}
+
 function isGeneratedNewsThumbnail(url: string) {
   return url.includes('https://s.wordpress.com/mshots/v1/');
 }
@@ -203,6 +207,18 @@ function transformContentWithVideoEmbeds(rawHtml: string) {
 
   const urlPattern = /(https?:\/\/[^\s<]+)/gi;
   textNodes.forEach((node) => {
+    const parentElement = node.parentElement;
+    if (!parentElement) return;
+    // Skip URL conversion inside existing embeds/links to avoid duplicated article cards.
+    if (
+      parentElement.closest('[data-article-embed="true"]') ||
+      parentElement.closest('a') ||
+      parentElement.closest('iframe') ||
+      parentElement.closest('video')
+    ) {
+      return;
+    }
+
     const source = node.textContent || '';
     if (!source.trim()) return;
     const matches = [...source.matchAll(urlPattern)];
@@ -282,6 +298,7 @@ function sanitizePostDetailContent(rawHtml: string) {
 
   const anchors = Array.from(wrapper.querySelectorAll('a[href]'));
   anchors.forEach((anchor) => {
+    if (anchor.closest('[data-article-embed="true"]')) return;
     const href = anchor.getAttribute('href') || '';
     const videoId = extractYouTubeVideoId(href);
     if (videoId) {
@@ -596,6 +613,11 @@ export default function Posts() {
                   <img 
                     src={post.image_url || `https://picsum.photos/seed/post${post.id}/800/450`} 
                     alt={post.title}
+                    onError={(event) => {
+                      const target = event.currentTarget;
+                      target.onerror = null;
+                      target.src = buildFallbackThumbnailUrl(`post-news-${post.id}`);
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute top-4 left-4">
