@@ -792,9 +792,20 @@ export default function Admin() {
               {dashboard.members.length === 0 ? (
                 <div className="px-4 py-6 text-sm text-slate-400">등록된 회원 정보가 없습니다.</div>
               ) : (
-                dashboard.members.map((member) => (
-                  <div key={member.id} className="grid grid-cols-5 border-t border-slate-100 text-sm">
-                    <div className="px-3 py-3 border-r border-slate-100 flex items-center gap-2">
+                dashboard.members.map((member) => {
+                  const isSelected = selectedMemberIds.includes(member.id);
+                  return (
+                  <div
+                    key={member.id}
+                    className={`grid grid-cols-5 border-t text-sm transition-colors ${
+                      isSelected ? 'border-slate-300 text-slate-900' : 'border-slate-100'
+                    }`}
+                  >
+                    <div
+                      className={`px-3 py-3 border-r flex items-center gap-2 ${
+                        isSelected ? 'border-slate-300 bg-slate-200' : 'border-slate-100 bg-white'
+                      }`}
+                    >
                       <button
                         type="button"
                         onClick={() => handleDeleteMember(member.id)}
@@ -813,7 +824,7 @@ export default function Admin() {
                       </button>
                       <input
                         type="checkbox"
-                        checked={selectedMemberIds.includes(member.id)}
+                        checked={isSelected}
                         onChange={(event) => {
                           if (event.target.checked) {
                             setSelectedMemberIds((prev) => [...prev, member.id]);
@@ -825,12 +836,33 @@ export default function Admin() {
                         aria-label={`${member.name} 선택`}
                       />
                     </div>
-                    <div className="px-4 py-3 border-r border-slate-100 text-slate-800">{member.name}</div>
-                    <div className="px-4 py-3 border-r border-slate-100 text-slate-700">{member.phone}</div>
-                    <div className="px-4 py-3 border-r border-slate-100 text-slate-500">{member.address || '-'}</div>
-                    <div className="px-4 py-3 text-slate-700">{member.type}</div>
+                    <div
+                      className={`px-4 py-3 border-r ${
+                        isSelected ? 'border-slate-300 bg-slate-200 text-slate-900' : 'border-slate-100 bg-white text-slate-800'
+                      }`}
+                    >
+                      {member.name}
+                    </div>
+                    <div
+                      className={`px-4 py-3 border-r ${
+                        isSelected ? 'border-slate-300 bg-slate-200 text-slate-800' : 'border-slate-100 bg-white text-slate-700'
+                      }`}
+                    >
+                      {member.phone}
+                    </div>
+                    <div
+                      className={`px-4 py-3 border-r ${
+                        isSelected ? 'border-slate-300 bg-slate-200 text-slate-700' : 'border-slate-100 bg-white text-slate-500'
+                      }`}
+                    >
+                      {member.address || '-'}
+                    </div>
+                    <div className={isSelected ? 'px-4 py-3 bg-slate-200 text-slate-800' : 'px-4 py-3 bg-white text-slate-700'}>
+                      {member.type}
+                    </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </section>
