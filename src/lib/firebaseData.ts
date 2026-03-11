@@ -383,17 +383,22 @@ export async function getStats() {
     const eventsRef = collection(db, 'events');
     const supportRef = collection(db, 'support_messages');
 
-    const [postsCountSnap, eventsCountSnap, supportCountSnap, visitorsToday] = await Promise.all([
+    const [postsCountResult, eventsCountResult, supportCountResult, visitorsTodayResult] = await Promise.allSettled([
       getCountFromServer(postsRef),
       getCountFromServer(eventsRef),
       getCountFromServer(supportRef),
       getVisitorCounterTotal(cycleKey, true),
     ]);
 
+    const postsCount = postsCountResult.status === 'fulfilled' ? postsCountResult.value.data().count : 0;
+    const eventsCount = eventsCountResult.status === 'fulfilled' ? eventsCountResult.value.data().count : 0;
+    const supportCount = supportCountResult.status === 'fulfilled' ? supportCountResult.value.data().count : 0;
+    const visitorsToday = visitorsTodayResult.status === 'fulfilled' ? visitorsTodayResult.value : 0;
+
     return {
-      posts: postsCountSnap.data().count,
-      events: eventsCountSnap.data().count,
-      supportMessages: supportCountSnap.data().count,
+      posts: postsCount,
+      events: eventsCount,
+      supportMessages: supportCount,
       visitorsToday,
     };
   } catch {
@@ -436,8 +441,9 @@ export async function incrementVisitCount(cycleKey: string) {
       createdAt: serverTimestamp(),
     });
     return true;
-  } catch {
+  } catch (error) {
     // Visitor counter must not block UI.
+    console.error('incrementVisitCount failed', error);
     return false;
   }
 }
