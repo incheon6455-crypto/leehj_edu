@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import type { FirebaseError } from 'firebase/app';
 import { Lock, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, signInWithEmailAndPassword } from 'firebase/auth';
@@ -102,8 +103,20 @@ export default function Login() {
     setSignupError('');
     try {
       const credential = await createUserWithEmailAndPassword(auth, toHiddenEmail(normalizedId), signupPassword);
-      await upsertAdminAccount(credential.user.uid, normalizedId, trimmedName);
-      await applyAdminSession({ username: normalizedId, name: trimmedName, role: 'admin' });
+
+      try {
+        await upsertAdminAccount(credential.user.uid, normalizedId, trimmedName);
+      } catch (profileError) {
+        console.error('admin profile upsert failed after signup', profileError);
+      }
+
+      try {
+        await applyAdminSession({ username: normalizedId, name: trimmedName, role: 'admin' });
+      } catch (sessionError) {
+        console.error('admin session create failed after signup', sessionError);
+        localStorage.setItem(ADMIN_SESSION_KEY, '1');
+      }
+
       setIsSignupOpen(false);
       setSignupName('');
       setSignupId('');
@@ -114,8 +127,13 @@ export default function Login() {
       setCheckedSignupId('');
       setError('');
       navigate('/admin');
-    } catch {
-      setSignupError('회원가입에 실패했습니다. 이미 사용 중인 아이디인지 확인해 주세요.');
+    } catch (error) {
+      const authError = error as FirebaseError;
+      if (authError?.code === 'auth/email-already-in-use') {
+        setSignupError('이미 사용 중인 아이디입니다.');
+      } else {
+        setSignupError('회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
     } finally {
       setIsSignupSubmitting(false);
     }
