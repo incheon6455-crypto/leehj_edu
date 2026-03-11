@@ -37,6 +37,10 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /hero_background_images/{document=**} {
+      allow read, create, update, delete: if true;
+    }
+
     match /admin_members/{document=**} {
       allow read, create, update, delete: if true;
     }

@@ -18,15 +18,21 @@ import {
 import { formatDate, stripHtmlTags } from '../lib/utils';
 import {
   createAdminMember,
+  deleteHeroBackgroundImage,
   deleteMemberAndRelatedContent,
   getAdminDashboardData,
+  getHeroBackgroundImages,
+  saveHeroBackgroundImage,
   updateMemberBySource,
   type AdminDashboardData,
+  type HeroBackgroundImageItem,
   type MemberManagementItem,
 } from '../lib/firebaseData';
 
 const ADMIN_PASSWORD = 'admin1234';
 const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
+const HERO_IMAGE_SLOT_COUNT = 4;
+const HERO_IMAGE_MAX_BYTES = 850 * 1024;
 
 function maskName(name: string) {
   if (name.length < 2) return name;
@@ -68,6 +74,25 @@ function getEmptyDashboard(): AdminDashboardData {
   };
 }
 
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+async function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error('파일을 읽지 못했습니다.'));
+    };
+    reader.onerror = () => reject(new Error('파일을 읽지 못했습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function Admin() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === '1');
   const [password, setPassword] = useState('');
@@ -81,6 +106,14 @@ export default function Admin() {
   const [savingMember, setSavingMember] = useState(false);
   const [memberActionError, setMemberActionError] = useState('');
   const [uploadingCsv, setUploadingCsv] = useState(false);
+  const [heroImages, setHeroImages] = useState<Array<HeroBackgroundImageItem | null>>(
+    Array.from({ length: HERO_IMAGE_SLOT_COUNT }, () => null)
+  );
+  const [heroPendingFiles, setHeroPendingFiles] = useState<
+    Array<{ dataUrl: string; sizeBytes: number; fileName: string } | null>
+  >(Array.from({ length: HERO_IMAGE_SLOT_COUNT }, () => null));
+  const [savingHeroSlot, setSavingHeroSlot] = useState<number | null>(null);
+  const [deletingHeroSlot, setDeletingHeroSlot] = useState<number | null>(null);
   const [isPostsModalOpen, setIsPostsModalOpen] = useState(false);
   const [isVisitorLogModalOpen, setIsVisitorLogModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -90,6 +123,23 @@ export default function Admin() {
     address: '',
     type: '응원메시지' as '응원메시지' | '정책제안' | '일반',
   });
+
+  const heroFileInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  const loadHeroImages = async () => {
+    try {
+      const docs = await getHeroBackgroundImages();
+      const next: Array<HeroBackgroundImageItem | null> = Array.from({ length: HERO_IMAGE_SLOT_COUNT }, () => null);
+      docs.forEach((item) => {
+        if (item.slot >= 1 && item.slot <= HERO_IMAGE_SLOT_COUNT) {
+          next[item.slot - 1] = item;
+        }
+      });
+      setHeroImages(next);
+    } catch {
+      setError('배경화면 정보를 불러오지 못했습니다.');
+    }
+  };
 
   const loadDashboard = async () => {
     setLoading(true);
@@ -107,6 +157,7 @@ export default function Admin() {
   useEffect(() => {
     if (!isLoggedIn) return;
     loadDashboard();
+    loadHeroImages();
   }, [isLoggedIn]);
 
   const handleLogin = (event: React.FormEvent) => {
@@ -342,6 +393,79 @@ export default function Admin() {
     window.URL.revokeObjectURL(url);
   };
 
+  const handleHeroFilePick = (slot: number) => {
+    const index = slot - 1;
+    heroFileInputRefs.current[index]?.click();
+  };
+
+  const handleHeroFileChange = async (slot: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const index = slot - 1;
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+    if (file.size > HERO_IMAGE_MAX_BYTES) {
+      setError(`파일 용량이 너무 큽니다. 1장당 최대 ${formatBytes(HERO_IMAGE_MAX_BYTES)} 이하로 업로드해 주세요.`);
+      return;
+    }
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setHeroPendingFiles((prev) => {
+        const next = [...prev];
+        next[index] = { dataUrl, sizeBytes: file.size, fileName: file.name };
+        return next;
+      });
+      setError('');
+    } catch {
+      setError('이미지 파일을 읽는 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleHeroUpload = async (slot: number) => {
+    const index = slot - 1;
+    const pending = heroPendingFiles[index];
+    if (!pending) return;
+
+    setSavingHeroSlot(slot);
+    setError('');
+    try {
+      await saveHeroBackgroundImage(slot, { dataUrl: pending.dataUrl, sizeBytes: pending.sizeBytes });
+      setHeroPendingFiles((prev) => {
+        const next = [...prev];
+        next[index] = null;
+        return next;
+      });
+      await loadHeroImages();
+    } catch {
+      setError('배경화면 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setSavingHeroSlot(null);
+    }
+  };
+
+  const handleHeroDelete = async (slot: number) => {
+    const index = slot - 1;
+    setDeletingHeroSlot(slot);
+    setError('');
+    try {
+      await deleteHeroBackgroundImage(slot);
+      setHeroPendingFiles((prev) => {
+        const next = [...prev];
+        next[index] = null;
+        return next;
+      });
+      await loadHeroImages();
+    } catch {
+      setError('배경화면 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setDeletingHeroSlot(null);
+    }
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 [&_button:enabled]:cursor-pointer [&_button:disabled]:cursor-not-allowed">
@@ -458,6 +582,74 @@ export default function Admin() {
         </div>
 
         <div className="grid grid-cols-1 gap-6">
+          <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="mb-4 space-y-1">
+              <h2 className="text-lg font-bold text-slate-900">메인 좌측 배경화면 관리</h2>
+              <p className="text-sm text-slate-500">
+                슬롯 4장까지 등록 가능합니다. 권장 사이즈: 1200x1600px 이상, 파일당 최대 {formatBytes(HERO_IMAGE_MAX_BYTES)}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              {Array.from({ length: HERO_IMAGE_SLOT_COUNT }, (_, idx) => {
+                const slot = idx + 1;
+                const saved = heroImages[idx];
+                const pending = heroPendingFiles[idx];
+                const preview = pending?.dataUrl || saved?.dataUrl || '';
+                const sizeBytes = pending?.sizeBytes ?? saved?.sizeBytes ?? 0;
+                return (
+                  <div key={slot} className="rounded-xl border border-slate-200 p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-slate-800">슬롯 {slot}</p>
+                      <p className="text-xs text-slate-500">현재 크기: {formatBytes(sizeBytes)}</p>
+                    </div>
+                    <div className="h-40 rounded-lg border border-slate-100 bg-slate-50 overflow-hidden flex items-center justify-center">
+                      {preview ? (
+                        <img src={preview} alt={`배경 슬롯 ${slot}`} className="h-full w-full object-contain" />
+                      ) : (
+                        <span className="text-xs text-slate-400">등록된 이미지 없음</span>
+                      )}
+                    </div>
+                    {pending ? <p className="text-xs text-slate-500 truncate">선택됨: {pending.fileName}</p> : null}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleHeroFilePick(slot)}
+                        className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                      >
+                        사진 선택
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleHeroUpload(slot)}
+                        disabled={!pending || savingHeroSlot === slot}
+                        className="flex-1 rounded-lg bg-burgundy px-3 py-2 text-xs font-bold text-white hover:bg-burgundy-dark transition disabled:opacity-60"
+                      >
+                        {savingHeroSlot === slot ? '업로드 중...' : '업로드'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleHeroDelete(slot)}
+                        disabled={(!saved && !pending) || deletingHeroSlot === slot}
+                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100 transition disabled:opacity-60"
+                      >
+                        {deletingHeroSlot === slot ? '삭제 중' : '삭제'}
+                      </button>
+                      <input
+                        ref={(el) => {
+                          heroFileInputRefs.current[idx] = el;
+                        }}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(event) => handleHeroFileChange(slot, event)}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
           <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <div className="mb-4 space-y-3">
               <h2 className="text-lg font-bold text-slate-900">회원 관리</h2>

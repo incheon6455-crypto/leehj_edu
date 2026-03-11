@@ -5,11 +5,19 @@ import { ArrowRight, ChevronRight, X } from 'lucide-react';
 import { CONFIG } from '../config';
 import { stripHtmlTags } from '../lib/utils';
 import { KPISection } from '../components/KPISection';
-import { getPosts, getSupportMessages, submitSupportMessage, type Post } from '../lib/firebaseData';
+import {
+  getHeroBackgroundImages,
+  getPosts,
+  getSupportMessages,
+  submitSupportMessage,
+  type Post,
+} from '../lib/firebaseData';
 import leftBackgroundImage from '../../Assets/image-removebg-preview.png';
 import heroImage2 from '../../Assets/IMG_7612.jpg';
 import heroImage3 from '../../Assets/IMG_7613.jpg';
 import heroImage4 from '../../Assets/IMG_7614.jpg';
+
+const DEFAULT_HERO_IMAGES = [leftBackgroundImage, heroImage2, heroImage3, heroImage4];
 
 const DEFAULT_SUPPORT_MESSAGES = [
   { id: 'default-1', content: "아이들을 위한 진심이 느껴집니다. 끝까지 응원하겠습니다.", name: "김민수", phone: "010-1234-5678" },
@@ -65,6 +73,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 export default function Home() {
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [heroImageIndex, setHeroImageIndex] = useState(0);
+  const [heroImages, setHeroImages] = useState<string[]>(DEFAULT_HERO_IMAGES);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [supportMessages, setSupportMessages] = useState(DEFAULT_SUPPORT_MESSAGES);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
@@ -100,12 +109,25 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    getHeroBackgroundImages().then((data) => {
+      if (data.length === 0) return;
+      const merged = [...DEFAULT_HERO_IMAGES];
+      data.forEach((item) => {
+        if (item.slot >= 1 && item.slot <= 4 && item.dataUrl) {
+          merged[item.slot - 1] = item.dataUrl;
+        }
+      });
+      setHeroImages(merged);
+    });
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(() => {
-      setHeroImageIndex((prev) => (prev + 1) % 4);
+      setHeroImageIndex((prev) => (prev + 1) % heroImages.length);
     }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [heroImages.length]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -209,7 +231,7 @@ export default function Home() {
       <section className="relative min-h-[80vh] flex flex-col lg:items-center pt-20 overflow-hidden bg-white">
         <div className="order-1 w-full grid grid-cols-1 lg:absolute lg:inset-0 lg:grid-cols-2">
           <div className="relative h-[40vh] lg:h-full bg-burgundy/[0.04] overflow-hidden">
-            {[leftBackgroundImage, heroImage2, heroImage3, heroImage4].map((image, index) => (
+            {heroImages.map((image, index) => (
               <div
                 key={image}
                 className="absolute inset-0 bg-contain bg-center bg-no-repeat transition-opacity duration-700"
@@ -256,7 +278,7 @@ export default function Home() {
         <div className="order-2 w-full z-20 lg:absolute lg:bottom-0 lg:left-0 lg:right-0">
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="absolute bottom-[158px] left-1/2 -translate-x-1/2 flex flex-row items-center gap-2 z-30 md:bottom-auto md:-left-4 md:top-1/2 md:-translate-x-[40px] md:-translate-y-1/2 lg:-left-8">
-              {[leftBackgroundImage, heroImage2, heroImage3, heroImage4].map((image, index) => (
+              {heroImages.map((image, index) => (
                 <button
                   type="button"
                   key={`${image}-dot`}

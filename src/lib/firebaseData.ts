@@ -11,6 +11,7 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
   writeBatch,
@@ -58,6 +59,13 @@ export interface PolicyReactionCountMap {
 export interface PolicyReactionIncrementResult {
   count: number;
   incremented: boolean;
+}
+
+export interface HeroBackgroundImageItem {
+  slot: number;
+  dataUrl: string;
+  sizeBytes: number;
+  updatedAt: string;
 }
 
 export interface MemberManagementItem {
@@ -879,6 +887,52 @@ export async function incrementPolicyReactionCount(policyId: string, voterId: st
   } catch {
     return { count: 0, incremented: false };
   }
+}
+
+const HERO_BACKGROUND_SLOTS = [1, 2, 3, 4];
+
+export async function getHeroBackgroundImages(): Promise<HeroBackgroundImageItem[]> {
+  if (!db || !isFirebaseConfigured) return [];
+  try {
+    const docs = await Promise.all(
+      HERO_BACKGROUND_SLOTS.map(async (slot) => {
+        const snap = await getDoc(doc(db, 'hero_background_images', `slot_${slot}`));
+        if (!snap.exists()) return null;
+        const data = snap.data() as Record<string, unknown>;
+        const dataUrl = String(data.dataUrl ?? '');
+        if (!dataUrl) return null;
+        return {
+          slot,
+          dataUrl,
+          sizeBytes: parseNonNegativeNumber(data.sizeBytes, 0),
+          updatedAt: safeDate(data.updatedAt),
+        } satisfies HeroBackgroundImageItem;
+      })
+    );
+    return docs.filter((item): item is HeroBackgroundImageItem => item !== null).sort((a, b) => a.slot - b.slot);
+  } catch {
+    return [];
+  }
+}
+
+export async function saveHeroBackgroundImage(slot: number, payload: { dataUrl: string; sizeBytes: number }) {
+  if (!db || !isFirebaseConfigured) throw new Error('Firebase is not configured');
+  if (!HERO_BACKGROUND_SLOTS.includes(slot)) throw new Error('Invalid slot');
+  if (!payload.dataUrl.startsWith('data:image/')) throw new Error('Invalid image format');
+  if (payload.sizeBytes <= 0) throw new Error('Invalid image size');
+
+  await setDoc(doc(db, 'hero_background_images', `slot_${slot}`), {
+    slot,
+    dataUrl: payload.dataUrl,
+    sizeBytes: payload.sizeBytes,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteHeroBackgroundImage(slot: number) {
+  if (!db || !isFirebaseConfigured) throw new Error('Firebase is not configured');
+  if (!HERO_BACKGROUND_SLOTS.includes(slot)) throw new Error('Invalid slot');
+  await deleteDoc(doc(db, 'hero_background_images', `slot_${slot}`));
 }
 
 export async function createAdminMember(payload: {
