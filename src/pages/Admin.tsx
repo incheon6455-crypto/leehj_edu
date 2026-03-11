@@ -910,6 +910,14 @@ export default function Admin() {
                       >
                         <Pencil size={14} />
                       </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 border border-emerald-100 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                        aria-label={`${member.name} 문자메시지`}
+                        title="문자메시지"
+                      >
+                        <MessageSquareText size={14} />
+                      </button>
                       <input
                         type="checkbox"
                         checked={isSelected}
