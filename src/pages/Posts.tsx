@@ -85,23 +85,42 @@ function detectVideoEmbedInfo(url: string): VideoEmbedInfo | null {
   return null;
 }
 
+function buildYouTubeWatchUrl(videoId: string) {
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
 function buildVideoEmbedNode(info: VideoEmbedInfo) {
   if (info.kind === 'youtube') {
-    const iframe = document.createElement('iframe');
-    iframe.src = `https://www.youtube-nocookie.com/embed/${info.videoId}?autoplay=1&mute=1&rel=0&playsinline=1&modestbranding=1`;
-    iframe.width = '100%';
-    iframe.height = '420';
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-    iframe.allowFullscreen = true;
-    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
-    iframe.loading = 'lazy';
-    iframe.style.width = '100%';
-    iframe.style.maxWidth = '100%';
-    iframe.style.aspectRatio = '16 / 9';
-    iframe.style.border = '0';
-    iframe.style.borderRadius = '8px';
-    iframe.style.margin = '10px 0';
-    return iframe;
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('data-youtube-link-card', 'true');
+    wrapper.style.margin = '10px 0';
+
+    const anchor = document.createElement('a');
+    anchor.href = buildYouTubeWatchUrl(info.videoId);
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.style.display = 'block';
+    anchor.style.textDecoration = 'none';
+
+    const image = document.createElement('img');
+    image.src = `https://img.youtube.com/vi/${info.videoId}/hqdefault.jpg`;
+    image.alt = '유튜브 썸네일';
+    image.style.width = '100%';
+    image.style.maxWidth = '100%';
+    image.style.borderRadius = '8px';
+    image.style.display = 'block';
+
+    const caption = document.createElement('p');
+    caption.textContent = '유튜브에서 영상 재생하기';
+    caption.style.margin = '8px 0 0';
+    caption.style.fontSize = '13px';
+    caption.style.fontWeight = '700';
+    caption.style.color = '#9f1239';
+
+    anchor.appendChild(image);
+    wrapper.appendChild(anchor);
+    wrapper.appendChild(caption);
+    return wrapper;
   }
 
   const video = document.createElement('video');
@@ -185,6 +204,20 @@ function getPostPreviewText(content: string) {
     return '이미지와 텍스트가 포함된 소식입니다.';
   }
   return stripHtmlTags(content);
+}
+
+function sanitizePostDetailContent(rawHtml: string) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = rawHtml;
+  const iframes = Array.from(wrapper.querySelectorAll('iframe'));
+  iframes.forEach((iframe) => {
+    const src = iframe.getAttribute('src') || '';
+    const videoId = extractYouTubeVideoId(src);
+    if (!videoId) return;
+    const safeNode = buildVideoEmbedNode({ kind: 'youtube', videoId });
+    iframe.replaceWith(safeNode);
+  });
+  return wrapper.innerHTML;
 }
 
 export default function Posts() {
@@ -378,6 +411,8 @@ export default function Posts() {
   };
 
   const visiblePosts = posts.slice(0, visibleCount);
+  const selectedPostDetailHtml = selectedPost ? sanitizePostDetailContent(selectedPost.content) : '';
+  const selectedPostHasEmbeddedMedia = /<(iframe|video)\b/i.test(selectedPostDetailHtml) || selectedPostDetailHtml.includes('data-youtube-link-card');
 
   return (
     <div className="pt-32 pb-24">
@@ -485,13 +520,15 @@ export default function Posts() {
             </div>
 
             <div className="p-5 space-y-4">
-              <div className="aspect-[2/1] overflow-hidden rounded-xl bg-slate-100">
-                <img
-                  src={selectedPost.image_url || `https://picsum.photos/seed/post${selectedPost.id}/1200/675`}
-                  alt={selectedPost.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              {!selectedPostHasEmbeddedMedia ? (
+                <div className="aspect-[2/1] overflow-hidden rounded-xl bg-slate-100">
+                  <img
+                    src={selectedPost.image_url || `https://picsum.photos/seed/post${selectedPost.id}/1200/675`}
+                    alt={selectedPost.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : null}
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span className="inline-flex items-center gap-1">
                   <Calendar size={13} /> {formatDate(selectedPost.date)}
@@ -503,7 +540,7 @@ export default function Posts() {
               <h3 className="text-2xl font-bold text-slate-900">{selectedPost.title}</h3>
               <div
                 className="text-sm leading-7 text-slate-700 whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3 [&_iframe]:w-full [&_iframe]:max-w-full [&_iframe]:rounded-lg [&_iframe]:my-3 [&_video]:w-full [&_video]:max-w-full [&_video]:rounded-lg [&_video]:my-3"
-                dangerouslySetInnerHTML={{ __html: selectedPost.content }}
+                dangerouslySetInnerHTML={{ __html: selectedPostDetailHtml }}
               />
             </div>
           </div>
