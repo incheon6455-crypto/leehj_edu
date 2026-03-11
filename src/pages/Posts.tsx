@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, Tag, ArrowRight, X } from 'lucide-react';
+import { Calendar, Tag, ArrowRight, X, ImagePlus } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { formatDate, stripHtmlTags } from '../lib/utils';
 import { createPost, getPosts, type Post } from '../lib/firebaseData';
@@ -36,6 +36,21 @@ async function optimizeImageDataUrl(file: File) {
   return canvas.toDataURL('image/jpeg', 0.85);
 }
 
+function extractFirstImageFromHtml(html: string) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  const img = wrapper.querySelector('img');
+  return img?.getAttribute('src') || '';
+}
+
+function hasRichContent(html: string) {
+  const plain = stripHtmlTags(html).trim();
+  if (plain) return true;
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  return Boolean(wrapper.querySelector('img'));
+}
+
 export default function Posts() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +66,8 @@ export default function Posts() {
     imageUrl: '',
   });
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const contentEditorRef = useRef<HTMLDivElement | null>(null);
+  const inlineImageInputRef = useRef<HTMLInputElement | null>(null);
   const location = useLocation();
   const isLatestOnly = new URLSearchParams(location.search).get('source') === 'latest';
 
@@ -103,6 +120,11 @@ export default function Posts() {
     setPostSubmitError('');
     setPostForm({ title: '', tags: '', content: '', imageUrl: '' });
     setIsWriteModalOpen(true);
+    window.requestAnimationFrame(() => {
+      if (contentEditorRef.current) {
+        contentEditorRef.current.innerHTML = '';
+      }
+    });
   };
 
   const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,17 +145,74 @@ export default function Posts() {
     }
   };
 
+  const insertImageIntoEditor = (src: string) => {
+    const editor = contentEditorRef.current;
+    if (!editor) return;
+
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const imageNode = document.createElement('img');
+    imageNode.src = src;
+    imageNode.alt = '첨부 이미지';
+    imageNode.style.maxWidth = '100%';
+    imageNode.style.height = 'auto';
+    imageNode.style.display = 'block';
+    imageNode.style.margin = '8px 0';
+    imageNode.style.borderRadius = '8px';
+
+    if (range && editor.contains(range.commonAncestorContainer)) {
+      range.deleteContents();
+      range.insertNode(imageNode);
+      const lineBreak = document.createElement('br');
+      imageNode.after(lineBreak);
+      range.setStartAfter(lineBreak);
+      range.collapse(true);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    } else {
+      editor.appendChild(imageNode);
+      editor.appendChild(document.createElement('br'));
+    }
+
+    const nextHtml = editor.innerHTML;
+    setPostForm((prev) => ({
+      ...prev,
+      content: nextHtml,
+      imageUrl: prev.imageUrl || extractFirstImageFromHtml(nextHtml),
+    }));
+  };
+
+  const handleInlineImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setPostSubmitError('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+    try {
+      const optimized = await optimizeImageDataUrl(file);
+      insertImageIntoEditor(optimized);
+      setPostSubmitError('');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '이미지 처리에 실패했습니다.';
+      setPostSubmitError(message);
+    }
+  };
+
   const handleSubmitPost = async (event: React.FormEvent) => {
     event.preventDefault();
+    const normalizedContent = postForm.content.trim();
+    const fallbackImage = postForm.imageUrl || extractFirstImageFromHtml(normalizedContent);
     const payload = {
       title: postForm.title.trim(),
       tags: postForm.tags.trim(),
-      content: postForm.content.trim(),
-      image_url: postForm.imageUrl,
+      content: normalizedContent,
+      image_url: fallbackImage,
     };
 
-    if (!payload.title || !payload.content || !payload.image_url) {
-      setPostSubmitError('제목, 내용, 이미지를 모두 입력해 주세요.');
+    if (!payload.title || !hasRichContent(payload.content)) {
+      setPostSubmitError('제목과 내용을 입력해 주세요.');
       return;
     }
 
@@ -281,9 +360,10 @@ export default function Posts() {
                 </span>
               </div>
               <h3 className="text-2xl font-bold text-slate-900">{selectedPost.title}</h3>
-              <p className="text-sm leading-7 text-slate-700 whitespace-pre-wrap">
-                {stripHtmlTags(selectedPost.content)}
-              </p>
+              <div
+                className="text-sm leading-7 text-slate-700 whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3"
+                dangerouslySetInnerHTML={{ __html: selectedPost.content }}
+              />
             </div>
           </div>
         </div>
@@ -337,12 +417,35 @@ export default function Posts() {
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-700">내용</label>
-                <textarea
-                  required
-                  value={postForm.content}
-                  onChange={(event) => setPostForm((prev) => ({ ...prev, content: event.target.value }))}
-                  rows={6}
-                  className="mt-1 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="text-xs text-slate-500">사진 버튼으로 이미지를 본문에 바로 삽입할 수 있습니다.</p>
+                  <button
+                    type="button"
+                    onClick={() => inlineImageInputRef.current?.click()}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    <ImagePlus size={14} />
+                    사진
+                  </button>
+                  <input
+                    ref={inlineImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleInlineImageChange}
+                    className="hidden"
+                  />
+                </div>
+                <div
+                  ref={contentEditorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={(event) =>
+                    setPostForm((prev) => ({
+                      ...prev,
+                      content: event.currentTarget.innerHTML,
+                    }))
+                  }
+                  className="mt-2 min-h-44 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus-within:ring-2 focus-within:ring-burgundy outline-none"
                 />
               </div>
               <div>
