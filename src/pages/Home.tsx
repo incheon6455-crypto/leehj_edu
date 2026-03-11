@@ -77,6 +77,7 @@ export default function Home() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [supportMessages, setSupportMessages] = useState(DEFAULT_SUPPORT_MESSAGES);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [selectedSupportMessage, setSelectedSupportMessage] = useState<{ id: string; name: string; phone: string; content: string } | null>(null);
   const [supportForm, setSupportForm] = useState({ name: '', phone: '', content: '' });
   const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
   const [supportSubmitError, setSupportSubmitError] = useState('');
@@ -141,16 +142,17 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!selectedPost && !isSupportModalOpen) return;
+    if (!selectedPost && !isSupportModalOpen && !selectedSupportMessage) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setSelectedPost(null);
         setIsSupportModalOpen(false);
+        setSelectedSupportMessage(null);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedPost, isSupportModalOpen]);
+  }, [selectedPost, isSupportModalOpen, selectedSupportMessage]);
 
   useEffect(() => {
     return () => {
@@ -367,7 +369,16 @@ export default function Home() {
                   {supportMessages.map((message) => (
                     <li
                       key={message.id}
-                      className="grid grid-cols-[minmax(0,1fr)_96px_132px] border-b border-white/10 last:border-b-0 text-sm text-white/90"
+                      className="grid grid-cols-[minmax(0,1fr)_96px_132px] border-b border-white/10 last:border-b-0 text-sm text-white/90 cursor-pointer hover:bg-white/10 transition-colors"
+                      onClick={() => setSelectedSupportMessage(message)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedSupportMessage(message);
+                        }
+                      }}
                     >
                       <span className="px-4 py-3 truncate">{message.content}</span>
                       <span className="px-3 py-3 border-l border-white/20 text-center truncate">{maskName(message.name)}</span>
@@ -415,6 +426,37 @@ export default function Home() {
               <p className="text-slate-700 leading-relaxed whitespace-pre-line">
                 {stripHtmlTags(selectedPost.content)}
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedSupportMessage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 px-4 py-6 md:py-10 flex items-center justify-center"
+          onClick={() => setSelectedSupportMessage(null)}
+        >
+          <div
+            className="w-full max-w-xl rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="border-b border-slate-200 px-5 py-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs text-burgundy font-bold mb-1">응원 메시지 상세</p>
+                <h3 className="text-xl font-bold text-slate-900">{maskName(selectedSupportMessage.name)}</h3>
+                <p className="text-sm text-slate-500 mt-1">{maskPhone(selectedSupportMessage.phone)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSupportMessage(null)}
+                aria-label="응원 메시지 모달 닫기"
+                className="shrink-0 p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedSupportMessage.content}</p>
             </div>
           </div>
         </div>
