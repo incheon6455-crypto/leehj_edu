@@ -627,7 +627,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       getDocs(visitorsQuery),
       getDocs(query(postsRef, orderBy('date', 'desc'))),
       getDocs(query(eventsRef, orderBy('date', 'asc'))),
-      getDocs(query(supportRef, orderBy('createdAt', 'desc'), limit(7))),
+      getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
       getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
       getDocs(query(proposalsRef, orderBy('createdAt', 'desc'))),
       getDocs(query(membersRef, orderBy('createdAt', 'desc'))),

@@ -120,6 +120,7 @@ export default function Admin() {
   const [isPostsModalOpen, setIsPostsModalOpen] = useState(false);
   const [isEventsModalOpen, setIsEventsModalOpen] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [isSupportMessagesModalOpen, setIsSupportMessagesModalOpen] = useState(false);
   const [isVisitorLogModalOpen, setIsVisitorLogModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [memberForm, setMemberForm] = useState({
@@ -185,6 +186,7 @@ export default function Admin() {
     setSelectedMemberIds([]);
     setIsPostsModalOpen(false);
     setIsEventsModalOpen(false);
+    setIsSupportMessagesModalOpen(false);
     setIsVisitorLogModalOpen(false);
     setPassword('');
     setError('');
@@ -615,6 +617,20 @@ export default function Admin() {
                 <p className="text-3xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
                 <p className="mt-2 text-xs text-emerald-600">클릭해서 행사 보기</p>
               </button>
+            ) : index === 3 ? (
+              <button
+                key={metric.label}
+                type="button"
+                onClick={() => setIsSupportMessagesModalOpen(true)}
+                className="text-left bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:border-amber-200 hover:shadow-md transition"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-slate-500">{metric.label}</p>
+                  <metric.icon className={metric.color} size={18} />
+                </div>
+                <p className="text-3xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
+                <p className="mt-2 text-xs text-amber-600">클릭해서 응원 메시지 보기</p>
+              </button>
             ) : (
               <div key={metric.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
@@ -988,6 +1004,50 @@ export default function Admin() {
                     </div>
                     <p className="text-xs text-slate-500 mt-1">{formatDate(eventItem.date)} · {eventItem.location}</p>
                     <p className="mt-2 text-sm text-slate-700">{stripHtmlTags(eventItem.description).slice(0, 140) || '-'}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSupportMessagesModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 px-4 py-6 flex items-center justify-center"
+          onClick={() => setIsSupportMessagesModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-2xl bg-white border border-slate-100 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">응원 메시지</h3>
+                <p className="text-xs text-slate-500 mt-0.5">총 {dashboard.totals.supportMessages.toLocaleString()}개</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSupportMessagesModalOpen(false)}
+                className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+                aria-label="응원 메시지 모달 닫기"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              {dashboard.recentSupportMessages.length === 0 ? (
+                <p className="text-sm text-slate-400">응원 메시지가 없습니다.</p>
+              ) : (
+                dashboard.recentSupportMessages.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-slate-100 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-slate-900">{maskName(item.name)}</p>
+                      <p className="text-xs text-slate-500">{formatDate(item.createdAt)}</p>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">{maskPhone(item.phone)}</p>
+                    <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{item.content || '-'}</p>
                   </div>
                 ))
               )}
