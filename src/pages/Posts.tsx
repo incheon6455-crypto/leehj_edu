@@ -88,11 +88,13 @@ function detectVideoEmbedInfo(url: string): VideoEmbedInfo | null {
 function buildVideoEmbedNode(info: VideoEmbedInfo) {
   if (info.kind === 'youtube') {
     const iframe = document.createElement('iframe');
-    iframe.src = `https://www.youtube.com/embed/${info.videoId}?autoplay=1&mute=0&rel=0&playsinline=1`;
+    iframe.src = `https://www.youtube-nocookie.com/embed/${info.videoId}?autoplay=1&mute=1&rel=0&playsinline=1&modestbranding=1`;
     iframe.width = '100%';
     iframe.height = '420';
     iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
     iframe.allowFullscreen = true;
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.loading = 'lazy';
     iframe.style.width = '100%';
     iframe.style.maxWidth = '100%';
     iframe.style.aspectRatio = '16 / 9';
