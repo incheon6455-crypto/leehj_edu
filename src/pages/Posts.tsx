@@ -77,6 +77,10 @@ function buildNewsThumbnailUrl(url: string) {
   return `https://s.wordpress.com/mshots/v1/${encodeURIComponent(url)}?w=1200&h=675`;
 }
 
+function isGeneratedNewsThumbnail(url: string) {
+  return url.includes('https://s.wordpress.com/mshots/v1/');
+}
+
 function extractYouTubeVideoId(url: string) {
   try {
     const parsed = new URL(url);
@@ -504,6 +508,8 @@ export default function Posts() {
   const visiblePosts = posts.slice(0, visibleCount);
   const selectedPostDetailHtml = selectedPost ? sanitizePostDetailContent(selectedPost.content) : '';
   const selectedPostHasEmbeddedMedia = /<(iframe|video)\b/i.test(selectedPostDetailHtml);
+  const shouldHideDetailHeroImage =
+    selectedPostHasEmbeddedMedia || (selectedPost ? isGeneratedNewsThumbnail(selectedPost.image_url || '') : false);
 
   useEffect(() => {
     if (!selectedPost) return;
@@ -653,7 +659,7 @@ export default function Posts() {
             </div>
 
             <div className="p-5 space-y-4">
-              {!selectedPostHasEmbeddedMedia ? (
+              {!shouldHideDetailHeroImage ? (
                 <div className="aspect-[2/1] overflow-hidden rounded-xl bg-slate-100">
                   <img
                     src={selectedPost.image_url || `https://picsum.photos/seed/post${selectedPost.id}/1200/675`}
