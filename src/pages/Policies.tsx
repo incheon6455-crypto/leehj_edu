@@ -32,6 +32,19 @@ function getStoredVotedPolicyIds() {
   }
 }
 
+function maskProposerName(name: string) {
+  const trimmed = name.trim();
+  if (trimmed.length <= 1) return trimmed;
+  if (trimmed.length === 2) return `${trimmed[0]}*`;
+  return `${trimmed[0]}*${trimmed[trimmed.length - 1]}`;
+}
+
+function maskProposerPhone(phone: string) {
+  const digits = phone.replace(/\D/g, '');
+  const lastTwo = digits.slice(-2).padStart(2, '*');
+  return `***-****-${lastTwo}`;
+}
+
 const policies = [
   {
     id: 'policy-basic-literacy',
@@ -82,11 +95,13 @@ export default function Policies() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [submittedPreview, setSubmittedPreview] = useState({ maskedName: '', maskedPhone: '' });
   const [reactionCounts, setReactionCounts] = useState<Record<string, number>>({});
   const [reactionInProgress, setReactionInProgress] = useState<string | null>(null);
   const [votedPolicyIds, setVotedPolicyIds] = useState<string[]>(() => getStoredVotedPolicyIds());
   const [proposalForm, setProposalForm] = useState({
     proposer: '',
+    phone: '',
     title: '',
     content: '',
   });
@@ -142,6 +157,8 @@ export default function Policies() {
               type="button"
               onClick={() => {
                 setIsSubmitted(false);
+                setSubmitError('');
+                setSubmittedPreview({ maskedName: '', maskedPhone: '' });
                 setIsProposalModalOpen(true);
               }}
               className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-burgundy text-white text-sm font-bold hover:bg-burgundy/90 transition-colors"
@@ -335,11 +352,16 @@ export default function Policies() {
                     try {
                       await submitPolicyProposal({
                         proposer: proposalForm.proposer.trim(),
+                        phone: proposalForm.phone.trim(),
                         title: proposalForm.title.trim(),
                         content: proposalForm.content.trim(),
                       });
+                      setSubmittedPreview({
+                        maskedName: maskProposerName(proposalForm.proposer),
+                        maskedPhone: maskProposerPhone(proposalForm.phone),
+                      });
                       setIsSubmitted(true);
-                      setProposalForm({ proposer: '', title: '', content: '' });
+                      setProposalForm({ proposer: '', phone: '', title: '', content: '' });
                     } catch (error) {
                       const message = error instanceof Error ? error.message : '';
                       if (message.includes('permission-denied') || message.includes('Missing or insufficient permissions')) {
@@ -383,6 +405,21 @@ export default function Policies() {
                   </div>
 
                   <div>
+                    <label htmlFor="proposal-phone" className="block text-sm font-semibold text-slate-700 mb-2">
+                      연락처
+                    </label>
+                    <input
+                      id="proposal-phone"
+                      type="tel"
+                      required
+                      value={proposalForm.phone}
+                      onChange={(e) => setProposalForm((prev) => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 focus:outline-none focus:ring-2 focus:ring-burgundy"
+                      placeholder="전화번호를 입력하세요"
+                    />
+                  </div>
+
+                  <div>
                     <label htmlFor="proposal-content" className="block text-sm font-semibold text-slate-700 mb-2">
                       상세 내용
                     </label>
@@ -420,6 +457,8 @@ export default function Policies() {
                 <div className="py-8 text-center">
                   <p className="text-slate-900 font-bold text-lg mb-2">제안이 접수되었습니다.</p>
                   <p className="text-slate-600 mb-6">소중한 의견 감사합니다. 검토 후 반영하겠습니다.</p>
+                  <p className="text-sm text-slate-500 mb-1">제안자: {submittedPreview.maskedName || '-'}</p>
+                  <p className="text-sm text-slate-500 mb-6">연락처: {submittedPreview.maskedPhone || '-'}</p>
                   <button
                     type="button"
                     onClick={() => {

@@ -47,6 +47,7 @@ export interface SupportMessageItem {
 export interface PolicyProposalItem {
   id: string;
   proposer: string;
+  phone: string;
   title: string;
   content: string;
   createdAt: string;
@@ -681,6 +682,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       return {
         id: docItem.id,
         proposer: String(data.proposer ?? ''),
+        phone: String(data.phone ?? '-'),
         title: String(data.title ?? ''),
         content: String(data.content ?? ''),
         createdAt: safeDate(data.createdAt),
@@ -711,7 +713,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     const proposalMembers: MemberManagementItem[] = allPolicyProposals.map((item) => ({
       id: `proposal-${item.id}`,
       name: item.proposer || '익명',
-      phone: '-',
+      phone: item.phone || '-',
       address: '-',
       type: '정책제안',
       createdAt: item.createdAt,
@@ -792,12 +794,13 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   }
 }
 
-export async function submitPolicyProposal(payload: { proposer: string; title: string; content: string }) {
+export async function submitPolicyProposal(payload: { proposer: string; phone: string; title: string; content: string }) {
   if (!db || !isFirebaseConfigured) return null;
 
   try {
     const docRef = await addDoc(collection(db, 'policy_proposals'), {
       proposer: payload.proposer,
+      phone: payload.phone,
       title: payload.title,
       content: payload.content,
       type: '정책제안',
@@ -807,6 +810,7 @@ export async function submitPolicyProposal(payload: { proposer: string; title: s
     return {
       id: docRef.id,
       proposer: payload.proposer,
+      phone: payload.phone,
       title: payload.title,
       content: payload.content,
       createdAt: new Date().toISOString(),
@@ -1062,6 +1066,7 @@ export async function updateMemberBySource(
     if (sourceCollection === 'policy_proposals') {
       await updateDoc(doc(db, sourceCollection, sourceId), {
         proposer: payload.name,
+        phone: payload.phone,
       });
       return;
     }
