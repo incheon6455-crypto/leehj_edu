@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Heart } from 'lucide-react';
+import { Menu, X, Heart, ChevronDown } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { CONFIG } from '../config';
 import { cn } from '../lib/utils';
-import { ADMIN_SESSION_STORAGE_KEY, getAdminSessionProfile, type AdminIdentityProfile } from '../lib/firebaseData';
+import { ADMIN_SESSION_STORAGE_KEY, deleteAdminSession, getAdminSessionProfile, type AdminIdentityProfile } from '../lib/firebaseData';
 
 const navItems = [
   { name: '홈', path: '/' },
@@ -20,6 +22,8 @@ export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminProfile, setAdminProfile] = useState<AdminIdentityProfile | null>(null);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
   const adminRoleLabel = adminProfile?.role === 'admin' ? '관리자' : adminProfile?.role || '';
 
@@ -28,6 +32,45 @@ export function Header() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    setIsAccountMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!accountMenuRef.current?.contains(target)) {
+        setIsAccountMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsAccountMenuOpen(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isAccountMenuOpen]);
+
+  const handleLogout = async () => {
+    const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+    await deleteAdminSession(sessionToken);
+    try {
+      await signOut(auth);
+    } catch {
+      // ignore sign out errors
+    }
+    localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    setIsAdminMode(false);
+    setAdminProfile(null);
+    setIsAccountMenuOpen(false);
+    setIsOpen(false);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -113,13 +156,35 @@ export function Header() {
               </React.Fragment>
             ))}
             {isAdminMode && adminProfile ? (
-              <Link
-                to="/admin"
-                className="bg-burgundy text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-burgundy-dark transition-all flex items-center gap-2 shadow-lg shadow-burgundy/20"
-              >
-                <Heart size={16} />
-                {`${adminProfile.name} · ${adminRoleLabel} · ${adminProfile.username}`}
-              </Link>
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+                  className="bg-burgundy text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-burgundy-dark transition-all inline-flex items-center gap-2 shadow-lg shadow-burgundy/20"
+                >
+                  {adminProfile.name}
+                  <ChevronDown size={14} />
+                </button>
+                {isAccountMenuOpen ? (
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
+                    <p className="px-3 py-2 text-xs font-semibold text-slate-500">{`회원등급: ${adminRoleLabel}`}</p>
+                    <Link
+                      to="/admin"
+                      className="block rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      onClick={() => setIsAccountMenuOpen(false)}
+                    >
+                      관리자페이지
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="mt-1 w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      로그아웃
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <Link
                 to="/login"
@@ -166,13 +231,38 @@ export function Header() {
               </React.Fragment>
             ))}
             {isAdminMode && adminProfile ? (
-              <Link
-                to="/admin"
-                className="block w-full text-center bg-burgundy text-white px-3 py-4 rounded-md text-base font-bold mt-4"
-                onClick={() => setIsOpen(false)}
-              >
-                {`${adminProfile.name} · ${adminRoleLabel} · ${adminProfile.username}`}
-              </Link>
+              <div className="mt-4 rounded-xl border border-burgundy/20 bg-burgundy/5 p-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between rounded-lg bg-burgundy text-white px-3 py-3 text-base font-bold"
+                >
+                  <span>{adminProfile.name}</span>
+                  <ChevronDown size={16} />
+                </button>
+                {isAccountMenuOpen ? (
+                  <div className="mt-2 rounded-lg bg-white border border-slate-100 p-2">
+                    <p className="px-2 py-1 text-xs font-semibold text-slate-500">{`회원등급: ${adminRoleLabel}`}</p>
+                    <Link
+                      to="/admin"
+                      className="block rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      onClick={() => {
+                        setIsAccountMenuOpen(false);
+                        setIsOpen(false);
+                      }}
+                    >
+                      관리자페이지
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="mt-1 w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      로그아웃
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <Link
                 to="/login"
