@@ -4,7 +4,13 @@ import { Lock, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { ADMIN_SESSION_STORAGE_KEY, createAdminSession, upsertAdminAccount } from '../lib/firebaseData';
+import {
+  ADMIN_SESSION_STORAGE_KEY,
+  createAdminSession,
+  getAdminAccountProfile,
+  upsertAdminAccount,
+  type AdminIdentityProfile,
+} from '../lib/firebaseData';
 
 const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
 
@@ -24,8 +30,8 @@ export default function Login() {
   const normalizeId = (raw: string) => raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
   const toHiddenEmail = (id: string) => `${normalizeId(id)}@myapp.com`;
 
-  const applyAdminSession = async () => {
-    const sessionToken = await createAdminSession();
+  const applyAdminSession = async (profile: Partial<AdminIdentityProfile>) => {
+    const sessionToken = await createAdminSession(profile);
     localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
     localStorage.setItem(ADMIN_SESSION_KEY, '1');
   };
@@ -36,7 +42,7 @@ export default function Login() {
 
     if (normalizedId === 'admin' && password === 'admin1234') {
       try {
-        await applyAdminSession();
+        await applyAdminSession({ username: 'admin', name: '관리자', role: 'admin' });
         setError('');
         navigate('/admin');
       } catch {
@@ -53,7 +59,8 @@ export default function Login() {
     try {
       const credential = await signInWithEmailAndPassword(auth, toHiddenEmail(normalizedId), password);
       await upsertAdminAccount(credential.user.uid, normalizedId);
-      await applyAdminSession();
+      const profile = await getAdminAccountProfile(credential.user.uid);
+      await applyAdminSession(profile || { username: normalizedId, name: normalizedId, role: 'admin' });
       setError('');
       navigate('/admin');
     } catch {
@@ -88,7 +95,7 @@ export default function Login() {
     try {
       const credential = await createUserWithEmailAndPassword(auth, toHiddenEmail(normalizedId), signupPassword);
       await upsertAdminAccount(credential.user.uid, normalizedId, trimmedName);
-      await applyAdminSession();
+      await applyAdminSession({ username: normalizedId, name: trimmedName, role: 'admin' });
       setIsSignupOpen(false);
       setSignupName('');
       setSignupId('');

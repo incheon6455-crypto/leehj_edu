@@ -247,7 +247,7 @@ export default function Admin() {
     }
 
     try {
-      const sessionToken = await createAdminSession();
+      const sessionToken = await createAdminSession({ username: 'admin', name: '관리자', role: 'admin' });
       localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
       localStorage.setItem(ADMIN_SESSION_KEY, '1');
       setLoginError('');

@@ -221,6 +221,12 @@ const POLICY_REACTION_MAX = 2000;
 const ADMIN_SESSION_COLLECTION = 'admin_sessions';
 export const ADMIN_SESSION_STORAGE_KEY = 'admin_dashboard_session_token';
 
+export interface AdminIdentityProfile {
+  username: string;
+  name: string;
+  role: string;
+}
+
 function createAdminSessionToken() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -1061,10 +1067,13 @@ export async function deleteMemberAndRelatedContent(member: MemberManagementItem
   }
 }
 
-export async function createAdminSession() {
+export async function createAdminSession(profile?: Partial<AdminIdentityProfile>) {
   const token = createAdminSessionToken();
   await setDoc(doc(db, ADMIN_SESSION_COLLECTION, token), {
     active: true,
+    username: String(profile?.username || '').trim() || 'admin',
+    name: String(profile?.name || '').trim() || '관리자',
+    role: String(profile?.role || '').trim() || 'admin',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -1104,6 +1113,46 @@ export async function upsertAdminAccount(uid: string, username: string, name?: s
     },
     { merge: true }
   );
+}
+
+export async function getAdminAccountProfile(uid: string): Promise<AdminIdentityProfile | null> {
+  if (!uid) return null;
+  try {
+    const snap = await getDoc(doc(db, 'admin_accounts', uid));
+    if (!snap.exists()) return null;
+    const data = snap.data() as Record<string, unknown>;
+    const username = String(data.username ?? '').trim();
+    const name = String(data.name ?? '').trim();
+    const role = String(data.role ?? 'admin').trim() || 'admin';
+    if (!username && !name) return null;
+    return {
+      username: username || 'admin',
+      name: name || username || '관리자',
+      role,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getAdminSessionProfile(token: string): Promise<AdminIdentityProfile | null> {
+  if (!token) return null;
+  try {
+    const snap = await getDoc(doc(db, ADMIN_SESSION_COLLECTION, token));
+    if (!snap.exists()) return null;
+    const data = snap.data() as Record<string, unknown>;
+    if (data.active === false) return null;
+    const username = String(data.username ?? '').trim();
+    const name = String(data.name ?? '').trim();
+    const role = String(data.role ?? 'admin').trim() || 'admin';
+    return {
+      username: username || 'admin',
+      name: name || username || '관리자',
+      role,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function updateMemberBySource(

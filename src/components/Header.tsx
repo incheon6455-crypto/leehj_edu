@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Heart } from 'lucide-react';
 import { CONFIG } from '../config';
 import { cn } from '../lib/utils';
-import { ADMIN_SESSION_STORAGE_KEY, verifyAdminSession } from '../lib/firebaseData';
+import { ADMIN_SESSION_STORAGE_KEY, getAdminSessionProfile, type AdminIdentityProfile } from '../lib/firebaseData';
 
 const navItems = [
   { name: '홈', path: '/' },
@@ -19,7 +19,9 @@ export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [adminProfile, setAdminProfile] = useState<AdminIdentityProfile | null>(null);
   const location = useLocation();
+  const adminRoleLabel = adminProfile?.role === 'admin' ? '관리자' : adminProfile?.role || '';
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -32,20 +34,25 @@ export function Header() {
     const syncAdminMode = async () => {
       const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
       if (!sessionToken) {
-        if (!cancelled) setIsAdminMode(false);
+        if (!cancelled) {
+          setIsAdminMode(false);
+          setAdminProfile(null);
+        }
         return;
       }
 
-      const active = await verifyAdminSession(sessionToken);
+      const profile = await getAdminSessionProfile(sessionToken);
       if (cancelled) return;
-      if (active) {
+      if (profile) {
         localStorage.setItem(ADMIN_SESSION_KEY, '1');
         setIsAdminMode(true);
+        setAdminProfile(profile);
         return;
       }
       localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
       localStorage.removeItem(ADMIN_SESSION_KEY);
       setIsAdminMode(false);
+      setAdminProfile(null);
     };
 
     syncAdminMode();
@@ -105,13 +112,23 @@ export function Header() {
                 ) : null}
               </React.Fragment>
             ))}
-            <Link
-              to="/login"
-              className="bg-burgundy text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-burgundy-dark transition-all flex items-center gap-2 shadow-lg shadow-burgundy/20"
-            >
-              <Heart size={16} />
-              로그인
-            </Link>
+            {isAdminMode && adminProfile ? (
+              <Link
+                to="/admin"
+                className="bg-burgundy text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-burgundy-dark transition-all flex items-center gap-2 shadow-lg shadow-burgundy/20"
+              >
+                <Heart size={16} />
+                {`${adminProfile.name} · ${adminRoleLabel} · ${adminProfile.username}`}
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="bg-burgundy text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-burgundy-dark transition-all flex items-center gap-2 shadow-lg shadow-burgundy/20"
+              >
+                <Heart size={16} />
+                로그인
+              </Link>
+            )}
           </nav>
 
           {/* Mobile Toggle */}
@@ -148,13 +165,23 @@ export function Header() {
                 ) : null}
               </React.Fragment>
             ))}
-            <Link
-              to="/login"
-              className="block w-full text-center bg-burgundy text-white px-3 py-4 rounded-md text-base font-bold mt-4"
-              onClick={() => setIsOpen(false)}
-            >
-              로그인
-            </Link>
+            {isAdminMode && adminProfile ? (
+              <Link
+                to="/admin"
+                className="block w-full text-center bg-burgundy text-white px-3 py-4 rounded-md text-base font-bold mt-4"
+                onClick={() => setIsOpen(false)}
+              >
+                {`${adminProfile.name} · ${adminRoleLabel} · ${adminProfile.username}`}
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="block w-full text-center bg-burgundy text-white px-3 py-4 rounded-md text-base font-bold mt-4"
+                onClick={() => setIsOpen(false)}
+              >
+                로그인
+              </Link>
+            )}
           </div>
         </div>
       )}
