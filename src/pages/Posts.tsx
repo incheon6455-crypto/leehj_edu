@@ -91,36 +91,21 @@ function buildYouTubeWatchUrl(videoId: string) {
 
 function buildVideoEmbedNode(info: VideoEmbedInfo) {
   if (info.kind === 'youtube') {
-    const wrapper = document.createElement('div');
-    wrapper.setAttribute('data-youtube-link-card', 'true');
-    wrapper.style.margin = '10px 0';
-
-    const anchor = document.createElement('a');
-    anchor.href = buildYouTubeWatchUrl(info.videoId);
-    anchor.target = '_blank';
-    anchor.rel = 'noopener noreferrer';
-    anchor.style.display = 'block';
-    anchor.style.textDecoration = 'none';
-
-    const image = document.createElement('img');
-    image.src = `https://img.youtube.com/vi/${info.videoId}/hqdefault.jpg`;
-    image.alt = '유튜브 썸네일';
-    image.style.width = '100%';
-    image.style.maxWidth = '100%';
-    image.style.borderRadius = '8px';
-    image.style.display = 'block';
-
-    const caption = document.createElement('p');
-    caption.textContent = '유튜브에서 영상 재생하기';
-    caption.style.margin = '8px 0 0';
-    caption.style.fontSize = '13px';
-    caption.style.fontWeight = '700';
-    caption.style.color = '#9f1239';
-
-    anchor.appendChild(image);
-    wrapper.appendChild(anchor);
-    wrapper.appendChild(caption);
-    return wrapper;
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube-nocookie.com/embed/${info.videoId}?autoplay=1&mute=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1`;
+    iframe.width = '100%';
+    iframe.height = '420';
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.loading = 'lazy';
+    iframe.style.width = '100%';
+    iframe.style.maxWidth = '100%';
+    iframe.style.aspectRatio = '16 / 9';
+    iframe.style.border = '0';
+    iframe.style.borderRadius = '8px';
+    iframe.style.margin = '10px 0';
+    return iframe;
   }
 
   const video = document.createElement('video');
@@ -209,14 +194,26 @@ function getPostPreviewText(content: string) {
 function sanitizePostDetailContent(rawHtml: string) {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = rawHtml;
-  const iframes = Array.from(wrapper.querySelectorAll('iframe'));
-  iframes.forEach((iframe) => {
-    const src = iframe.getAttribute('src') || '';
-    const videoId = extractYouTubeVideoId(src);
+
+  // Migrate previously saved "youtube link card" content back to inline embeds.
+  const legacyCards = Array.from(wrapper.querySelectorAll('[data-youtube-link-card="true"]'));
+  legacyCards.forEach((card) => {
+    const anchor = card.querySelector('a');
+    const href = anchor?.getAttribute('href') || '';
+    const videoId = extractYouTubeVideoId(href);
     if (!videoId) return;
-    const safeNode = buildVideoEmbedNode({ kind: 'youtube', videoId });
-    iframe.replaceWith(safeNode);
+    card.replaceWith(buildVideoEmbedNode({ kind: 'youtube', videoId }));
   });
+
+  const anchors = Array.from(wrapper.querySelectorAll('a[href]'));
+  anchors.forEach((anchor) => {
+    const href = anchor.getAttribute('href') || '';
+    const videoId = extractYouTubeVideoId(href);
+    if (!videoId) return;
+    // Replace plain YouTube links in older posts with inline embeds.
+    anchor.replaceWith(buildVideoEmbedNode({ kind: 'youtube', videoId }));
+  });
+
   return wrapper.innerHTML;
 }
 
@@ -412,7 +409,7 @@ export default function Posts() {
 
   const visiblePosts = posts.slice(0, visibleCount);
   const selectedPostDetailHtml = selectedPost ? sanitizePostDetailContent(selectedPost.content) : '';
-  const selectedPostHasEmbeddedMedia = /<(iframe|video)\b/i.test(selectedPostDetailHtml) || selectedPostDetailHtml.includes('data-youtube-link-card');
+  const selectedPostHasEmbeddedMedia = /<(iframe|video)\b/i.test(selectedPostDetailHtml);
 
   return (
     <div className="pt-32 pb-24">
