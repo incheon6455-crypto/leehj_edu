@@ -1091,6 +1091,20 @@ export async function deleteAdminSession(token: string) {
   }
 }
 
+export async function upsertAdminAccount(uid: string, username: string) {
+  if (!uid) return;
+  await setDoc(
+    doc(db, 'admin_accounts', uid),
+    {
+      username,
+      role: 'admin',
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
 export async function updateMemberBySource(
   sourceCollection: MemberManagementItem['sourceCollection'],
   sourceId: string,
