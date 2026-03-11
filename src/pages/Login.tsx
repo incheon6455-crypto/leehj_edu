@@ -164,7 +164,7 @@ export default function Login() {
               setSignupError('');
               setIsSignupOpen(true);
             }}
-            className="w-full py-3 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-colors"
+            className="w-full py-3 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-colors cursor-pointer"
           >
             회원가입
           </button>
