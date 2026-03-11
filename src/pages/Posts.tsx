@@ -23,8 +23,9 @@ async function optimizeImageDataUrl(file: File) {
     image.onerror = () => reject(new Error('이미지 미리보기를 생성하지 못했습니다.'));
   });
 
-  const maxWidth = 1280;
-  const scale = Math.min(1, maxWidth / image.width);
+  const maxWidth = 960;
+  const maxHeight = 960;
+  const scale = Math.min(1, maxWidth / image.width, maxHeight / image.height);
   const width = Math.max(1, Math.round(image.width * scale));
   const height = Math.max(1, Math.round(image.height * scale));
   const canvas = document.createElement('canvas');
@@ -33,7 +34,13 @@ async function optimizeImageDataUrl(file: File) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return source;
   ctx.drawImage(image, 0, 0, width, height);
-  return canvas.toDataURL('image/jpeg', 0.85);
+  let quality = 0.82;
+  let result = canvas.toDataURL('image/jpeg', quality);
+  while (result.length > 500_000 && quality > 0.55) {
+    quality -= 0.08;
+    result = canvas.toDataURL('image/jpeg', quality);
+  }
+  return result;
 }
 
 function extractFirstImageFromHtml(html: string) {
@@ -49,6 +56,13 @@ function hasRichContent(html: string) {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = html;
   return Boolean(wrapper.querySelector('img'));
+}
+
+function getPostPreviewText(content: string) {
+  if (content.includes('data:image/')) {
+    return '이미지와 텍스트가 포함된 소식입니다.';
+  }
+  return stripHtmlTags(content);
 }
 
 export default function Posts() {
@@ -67,6 +81,7 @@ export default function Posts() {
   });
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const contentEditorRef = useRef<HTMLDivElement | null>(null);
+  const postContentHtmlRef = useRef('');
   const inlineImageInputRef = useRef<HTMLInputElement | null>(null);
   const location = useLocation();
   const isLatestOnly = new URLSearchParams(location.search).get('source') === 'latest';
@@ -119,6 +134,7 @@ export default function Posts() {
   const handleOpenWriteModal = () => {
     setPostSubmitError('');
     setPostForm({ title: '', tags: '', content: '', imageUrl: '' });
+    postContentHtmlRef.current = '';
     setIsWriteModalOpen(true);
     window.requestAnimationFrame(() => {
       if (contentEditorRef.current) {
@@ -175,9 +191,9 @@ export default function Posts() {
     }
 
     const nextHtml = editor.innerHTML;
+    postContentHtmlRef.current = nextHtml;
     setPostForm((prev) => ({
       ...prev,
-      content: nextHtml,
       imageUrl: prev.imageUrl || extractFirstImageFromHtml(nextHtml),
     }));
   };
@@ -202,7 +218,8 @@ export default function Posts() {
 
   const handleSubmitPost = async (event: React.FormEvent) => {
     event.preventDefault();
-    const normalizedContent = postForm.content.trim();
+    const rawContent = contentEditorRef.current?.innerHTML || postContentHtmlRef.current || '';
+    const normalizedContent = rawContent.trim();
     const fallbackImage = postForm.imageUrl || extractFirstImageFromHtml(normalizedContent);
     const payload = {
       title: postForm.title.trim(),
@@ -305,7 +322,7 @@ export default function Posts() {
                   </h3>
                   
                   <p className="text-slate-600 text-[12px] line-clamp-3 mb-3.5 flex-1">
-                    {stripHtmlTags(post.content)}
+                    {getPostPreviewText(post.content)}
                   </p>
                   
                   <span className="text-burgundy font-bold text-[11px] flex items-center gap-1 group/btn">
@@ -440,10 +457,9 @@ export default function Posts() {
                   contentEditable
                   suppressContentEditableWarning
                   onInput={(event) =>
-                    setPostForm((prev) => ({
-                      ...prev,
-                      content: event.currentTarget.innerHTML,
-                    }))
+                    {
+                      postContentHtmlRef.current = event.currentTarget.innerHTML;
+                    }
                   }
                   className="mt-2 min-h-44 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus-within:ring-2 focus-within:ring-burgundy outline-none"
                 />
