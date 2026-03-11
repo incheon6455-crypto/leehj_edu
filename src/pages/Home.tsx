@@ -328,19 +328,19 @@ export default function Home() {
                   전체보기 <ArrowRight size={16} />
                 </Link>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {latestPosts.map((post, i) => (
                   <div
                     key={post.id}
                     onClick={() => setSelectedPost(post)}
-                    className="bg-white/10 border border-white/20 backdrop-blur-sm p-4 hover:bg-white/15 transition-colors cursor-pointer group shadow-lg shadow-black/20"
+                    className="bg-white/10 border border-white/20 backdrop-blur-sm p-3 hover:bg-white/15 transition-colors cursor-pointer group shadow-lg shadow-black/20"
                   >
-                    <div className="w-full h-28 rounded-lg overflow-hidden mb-3">
+                    <div className="w-full h-24 rounded-lg overflow-hidden mb-2">
                       <img src={post.image_url || `https://picsum.photos/seed/news${post.id || i}/300/200`} alt={post.title} className="w-full h-full object-cover" />
                     </div>
-                    <p className="text-gold text-xs font-bold mb-1.5">{post.tags?.split(',')[0] || '활동 소식'}</p>
-                    <h4 className="text-base font-bold mb-1.5 group-hover:text-gold transition-colors line-clamp-2">{post.title}</h4>
-                    <p className="text-white/70 text-sm line-clamp-2">{stripHtmlTags(post.content)}</p>
+                    <p className="text-gold text-[11px] font-bold mb-1">{post.tags?.split(',')[0] || '활동 소식'}</p>
+                    <h4 className="text-sm font-bold mb-1 group-hover:text-gold transition-colors line-clamp-2">{post.title}</h4>
+                    <p className="text-white/70 text-xs line-clamp-2">{stripHtmlTags(post.content)}</p>
                   </div>
                 ))}
               </div>
