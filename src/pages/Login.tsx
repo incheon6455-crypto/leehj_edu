@@ -14,6 +14,7 @@ import {
 } from '../lib/firebaseData';
 
 const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
+const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -39,6 +40,14 @@ export default function Login() {
     const sessionToken = await createAdminSession(profile);
     localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
     localStorage.setItem(ADMIN_SESSION_KEY, '1');
+    localStorage.setItem(
+      ADMIN_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        username: String(profile.username || 'admin'),
+        name: String(profile.name || profile.username || '관리자'),
+        role: String(profile.role || 'admin'),
+      })
+    );
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -115,6 +124,10 @@ export default function Login() {
       } catch (sessionError) {
         console.error('admin session create failed after signup', sessionError);
         localStorage.setItem(ADMIN_SESSION_KEY, '1');
+        localStorage.setItem(
+          ADMIN_PROFILE_STORAGE_KEY,
+          JSON.stringify({ username: normalizedId, name: trimmedName, role: 'admin' })
+        );
       }
 
       setIsSignupOpen(false);

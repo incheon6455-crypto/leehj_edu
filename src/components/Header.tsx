@@ -16,6 +16,7 @@ const navItems = [
   { name: '후원/문의', path: '/contact' },
 ];
 const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
+const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -66,6 +67,7 @@ export function Header() {
     }
     localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
     localStorage.removeItem(ADMIN_SESSION_KEY);
+    localStorage.removeItem(ADMIN_PROFILE_STORAGE_KEY);
     setIsAdminMode(false);
     setAdminProfile(null);
     setIsAccountMenuOpen(false);
@@ -75,11 +77,32 @@ export function Header() {
   useEffect(() => {
     let cancelled = false;
     const syncAdminMode = async () => {
+      const localLoggedIn = localStorage.getItem(ADMIN_SESSION_KEY) === '1';
+      const cachedProfileRaw = localStorage.getItem(ADMIN_PROFILE_STORAGE_KEY);
+      let cachedProfile: AdminIdentityProfile | null = null;
+      if (cachedProfileRaw) {
+        try {
+          cachedProfile = JSON.parse(cachedProfileRaw) as AdminIdentityProfile;
+        } catch {
+          cachedProfile = null;
+        }
+      }
+
+      if (localLoggedIn && cachedProfile && !cancelled) {
+        setIsAdminMode(true);
+        setAdminProfile(cachedProfile);
+      }
+
       const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
       if (!sessionToken) {
         if (!cancelled) {
-          setIsAdminMode(false);
-          setAdminProfile(null);
+          if (localLoggedIn && cachedProfile) {
+            setIsAdminMode(true);
+            setAdminProfile(cachedProfile);
+          } else {
+            setIsAdminMode(false);
+            setAdminProfile(null);
+          }
         }
         return;
       }
@@ -88,12 +111,19 @@ export function Header() {
       if (cancelled) return;
       if (profile) {
         localStorage.setItem(ADMIN_SESSION_KEY, '1');
+        localStorage.setItem(ADMIN_PROFILE_STORAGE_KEY, JSON.stringify(profile));
         setIsAdminMode(true);
         setAdminProfile(profile);
         return;
       }
+      if (localLoggedIn && cachedProfile) {
+        setIsAdminMode(true);
+        setAdminProfile(cachedProfile);
+        return;
+      }
       localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
       localStorage.removeItem(ADMIN_SESSION_KEY);
+      localStorage.removeItem(ADMIN_PROFILE_STORAGE_KEY);
       setIsAdminMode(false);
       setAdminProfile(null);
     };

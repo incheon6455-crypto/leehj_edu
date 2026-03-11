@@ -56,6 +56,7 @@ declare global {
 
 const ADMIN_PASSWORD = 'admin1234';
 const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
+const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 const HERO_IMAGE_SLOT_COUNT = 4;
 const HERO_IMAGE_MAX_BYTES = 850 * 1024;
 
@@ -250,6 +251,7 @@ export default function Admin() {
       const sessionToken = await createAdminSession({ username: 'admin', name: '관리자', role: 'admin' });
       localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
       localStorage.setItem(ADMIN_SESSION_KEY, '1');
+      localStorage.setItem(ADMIN_PROFILE_STORAGE_KEY, JSON.stringify({ username: 'admin', name: '관리자', role: 'admin' }));
       setLoginError('');
       setPassword('');
       setIsLoggedIn(true);
@@ -263,6 +265,7 @@ export default function Admin() {
     await deleteAdminSession(sessionToken);
     localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
     localStorage.removeItem(ADMIN_SESSION_KEY);
+    localStorage.removeItem(ADMIN_PROFILE_STORAGE_KEY);
     setIsLoggedIn(false);
     setDashboard(getEmptyDashboard());
     setSelectedMemberIds([]);
