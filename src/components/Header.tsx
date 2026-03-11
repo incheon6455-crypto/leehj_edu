@@ -24,7 +24,8 @@ export function Header() {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminProfile, setAdminProfile] = useState<AdminIdentityProfile | null>(null);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const desktopAccountMenuRef = useRef<HTMLDivElement | null>(null);
+  const mobileAccountMenuRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
   const adminRoleLabel = adminProfile?.role === 'admin' ? '관리자' : adminProfile?.role || '';
 
@@ -42,7 +43,9 @@ export function Header() {
     if (!isAccountMenuOpen) return;
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (!accountMenuRef.current?.contains(target)) {
+      const isInDesktopMenu = desktopAccountMenuRef.current?.contains(target) ?? false;
+      const isInMobileMenu = mobileAccountMenuRef.current?.contains(target) ?? false;
+      if (!isInDesktopMenu && !isInMobileMenu) {
         setIsAccountMenuOpen(false);
       }
     };
@@ -178,7 +181,7 @@ export function Header() {
               </React.Fragment>
             ))}
             {isAdminMode && adminProfile ? (
-              <div className="relative" ref={accountMenuRef}>
+              <div className="relative" ref={desktopAccountMenuRef}>
                 <button
                   type="button"
                   onClick={() => setIsAccountMenuOpen((prev) => !prev)}
@@ -244,7 +247,7 @@ export function Header() {
               </React.Fragment>
             ))}
             {isAdminMode && adminProfile ? (
-              <div className="mt-4 rounded-xl border border-burgundy/20 bg-burgundy/5 p-2">
+              <div className="mt-4 rounded-xl border border-burgundy/20 bg-burgundy/5 p-2" ref={mobileAccountMenuRef}>
                 <button
                   type="button"
                   onClick={() => setIsAccountMenuOpen((prev) => !prev)}
