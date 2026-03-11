@@ -813,6 +813,15 @@ export default function Admin() {
                   >
                     <Pencil size={16} />
                   </button>
+                  <button
+                    type="button"
+                    disabled={selectedMemberIds.length === 0}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="선택 회원 문자메시지"
+                    title="선택 회원 문자메시지"
+                  >
+                    <MessageSquareText size={16} />
+                  </button>
                 </div>
                 <div className="ml-auto flex items-center gap-2">
                   <button
@@ -909,14 +918,6 @@ export default function Admin() {
                         aria-label={`${member.name} 수정`}
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 border border-emerald-100 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                        aria-label={`${member.name} 문자메시지`}
-                        title="문자메시지"
-                      >
-                        <MessageSquareText size={14} />
                       </button>
                       <input
                         type="checkbox"
