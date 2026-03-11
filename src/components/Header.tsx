@@ -12,10 +12,12 @@ const navItems = [
   { name: '행사', path: '/events' },
   { name: '후원/문의', path: '/contact' },
 ];
+const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isAdminMode, setIsAdminMode] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -23,6 +25,19 @@ export function Header() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    const syncAdminMode = () => {
+      setIsAdminMode(localStorage.getItem(ADMIN_SESSION_KEY) === '1');
+    };
+    syncAdminMode();
+    window.addEventListener('storage', syncAdminMode);
+    window.addEventListener('focus', syncAdminMode);
+    return () => {
+      window.removeEventListener('storage', syncAdminMode);
+      window.removeEventListener('focus', syncAdminMode);
+    };
+  }, [location.pathname]);
 
   return (
     <header className={cn(
@@ -59,7 +74,14 @@ export function Header() {
                   location.pathname === item.path ? "text-burgundy border-b-2 border-burgundy" : "text-slate-600"
                 )}
               >
-                {item.name}
+                <span className="inline-flex items-center gap-2">
+                  {item.name}
+                  {item.path === '/contact' && isAdminMode ? (
+                    <span className="px-2 py-0.5 rounded-full bg-burgundy/10 text-burgundy text-[10px] font-bold">
+                      관리자 모드
+                    </span>
+                  ) : null}
+                </span>
               </Link>
             ))}
             <Link
@@ -92,7 +114,14 @@ export function Header() {
                 )}
                 onClick={() => setIsOpen(false)}
               >
-                {item.name}
+                <span className="inline-flex items-center gap-2">
+                  {item.name}
+                  {item.path === '/contact' && isAdminMode ? (
+                    <span className="px-2 py-0.5 rounded-full bg-burgundy/10 text-burgundy text-[10px] font-bold">
+                      관리자 모드
+                    </span>
+                  ) : null}
+                </span>
               </Link>
             ))}
             <Link
