@@ -70,6 +70,81 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   });
 }
 
+function extractYouTubeVideoId(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') {
+      return parsed.pathname.replace(/\//g, '').trim();
+    }
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+      if (parsed.pathname === '/watch') return parsed.searchParams.get('v') || '';
+      if (parsed.pathname.startsWith('/shorts/')) return parsed.pathname.split('/')[2] || '';
+      if (parsed.pathname.startsWith('/embed/')) return parsed.pathname.split('/')[2] || '';
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+function buildYouTubeIframe(videoId: string) {
+  return `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1" width="100%" height="420" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin" style="width:100%;max-width:100%;aspect-ratio:16/9;border:0;border-radius:8px;margin:10px 0;"></iframe>`;
+}
+
+function buildPostDetailHtml(content: string) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = content;
+
+  const anchors = Array.from(wrapper.querySelectorAll('a[href]'));
+  anchors.forEach((anchor) => {
+    const href = anchor.getAttribute('href') || '';
+    const videoId = extractYouTubeVideoId(href);
+    if (!videoId) return;
+    const iframeWrap = document.createElement('div');
+    iframeWrap.innerHTML = buildYouTubeIframe(videoId);
+    anchor.replaceWith(iframeWrap.firstElementChild || anchor);
+  });
+
+  const textNodes: Text[] = [];
+  const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT);
+  let current = walker.nextNode();
+  while (current) {
+    textNodes.push(current as Text);
+    current = walker.nextNode();
+  }
+
+  const urlPattern = /(https?:\/\/[^\s<]+)/gi;
+  textNodes.forEach((node) => {
+    const source = node.textContent || '';
+    if (!source.trim()) return;
+    const matches = [...source.matchAll(urlPattern)];
+    if (matches.length === 0) return;
+
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+    matches.forEach((match) => {
+      const foundUrl = match[0];
+      const start = match.index ?? 0;
+      if (start > cursor) fragment.appendChild(document.createTextNode(source.slice(cursor, start)));
+
+      const videoId = extractYouTubeVideoId(foundUrl);
+      if (videoId) {
+        const iframeWrap = document.createElement('div');
+        iframeWrap.innerHTML = buildYouTubeIframe(videoId);
+        if (iframeWrap.firstElementChild) fragment.appendChild(iframeWrap.firstElementChild);
+      } else {
+        fragment.appendChild(document.createTextNode(foundUrl));
+      }
+      cursor = start + foundUrl.length;
+    });
+    if (cursor < source.length) fragment.appendChild(document.createTextNode(source.slice(cursor)));
+    node.parentNode?.replaceChild(fragment, node);
+  });
+
+  return wrapper.innerHTML;
+}
+
 export default function Home() {
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [heroImageIndex, setHeroImageIndex] = useState(0);
@@ -82,6 +157,7 @@ export default function Home() {
   const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
   const [supportSubmitError, setSupportSubmitError] = useState('');
   const submitFallbackTimerRef = useRef<number | null>(null);
+  const selectedPostDetailHtml = selectedPost ? buildPostDetailHtml(selectedPost.content) : '';
 
   useEffect(() => {
     getPosts()
@@ -423,9 +499,10 @@ export default function Home() {
                   className="w-full h-auto object-cover"
                 />
               </div>
-              <p className="text-slate-700 leading-relaxed whitespace-pre-line">
-                {stripHtmlTags(selectedPost.content)}
-              </p>
+              <div
+                className="text-slate-700 leading-relaxed whitespace-pre-line [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3 [&_iframe]:w-full [&_iframe]:max-w-full [&_iframe]:rounded-lg [&_iframe]:my-3 [&_video]:w-full [&_video]:max-w-full [&_video]:rounded-lg [&_video]:my-3"
+                dangerouslySetInnerHTML={{ __html: selectedPostDetailHtml }}
+              />
             </div>
           </div>
         </div>

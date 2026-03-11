@@ -411,6 +411,48 @@ export default function Posts() {
   const selectedPostDetailHtml = selectedPost ? sanitizePostDetailContent(selectedPost.content) : '';
   const selectedPostHasEmbeddedMedia = /<(iframe|video)\b/i.test(selectedPostDetailHtml);
 
+  useEffect(() => {
+    if (!selectedPost) return;
+    if (window.innerWidth >= 1024) return; // PC 웹은 변경하지 않음
+
+    const timer = window.setTimeout(() => {
+      const detailRoot = document.querySelector('[data-post-detail-content="true"]');
+      if (!detailRoot) return;
+
+      const iframes = Array.from(detailRoot.querySelectorAll('iframe'));
+      iframes.forEach((iframe) => {
+        try {
+          const parsed = new URL(iframe.src);
+          parsed.searchParams.set('autoplay', '1');
+          parsed.searchParams.set('mute', '1');
+          parsed.searchParams.set('playsinline', '1');
+          parsed.searchParams.set('rel', '0');
+          parsed.searchParams.set('modestbranding', '1');
+          parsed.searchParams.set('enablejsapi', '1');
+          const nextSrc = parsed.toString();
+          iframe.setAttribute('loading', 'eager');
+          // Reset src to force mobile autoplay params to take effect after modal mount.
+          iframe.src = nextSrc;
+        } catch {
+          // ignore malformed iframe src
+        }
+      });
+
+      const videos = Array.from(detailRoot.querySelectorAll('video'));
+      videos.forEach((video) => {
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        const playPromise = video.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {});
+        }
+      });
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedPost?.id, selectedPostDetailHtml]);
+
   return (
     <div className="pt-32 pb-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -536,6 +578,7 @@ export default function Posts() {
               </div>
               <h3 className="text-2xl font-bold text-slate-900">{selectedPost.title}</h3>
               <div
+                data-post-detail-content="true"
                 className="text-sm leading-7 text-slate-700 whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3 [&_iframe]:w-full [&_iframe]:max-w-full [&_iframe]:rounded-lg [&_iframe]:my-3 [&_video]:w-full [&_video]:max-w-full [&_video]:rounded-lg [&_video]:my-3"
                 dangerouslySetInnerHTML={{ __html: selectedPostDetailHtml }}
               />
