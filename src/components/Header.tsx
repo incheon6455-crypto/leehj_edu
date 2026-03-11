@@ -66,23 +66,25 @@ export function Header() {
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center justify-center space-x-8">
             {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "text-sm font-medium transition-colors hover:text-burgundy",
-                  location.pathname === item.path ? "text-burgundy border-b-2 border-burgundy" : "text-slate-600"
-                )}
-              >
-                <span className="inline-flex items-center gap-2">
+              <React.Fragment key={item.path}>
+                <Link
+                  to={item.path}
+                  className={cn(
+                    "text-sm font-medium transition-colors hover:text-burgundy",
+                    location.pathname === item.path ? "text-burgundy border-b-2 border-burgundy" : "text-slate-600"
+                  )}
+                >
                   {item.name}
-                  {item.path === '/contact' && isAdminMode ? (
-                    <span className="px-2 py-0.5 rounded-full bg-burgundy/10 text-burgundy text-[10px] font-bold">
-                      관리자 모드
-                    </span>
-                  ) : null}
-                </span>
-              </Link>
+                </Link>
+                {item.path === '/contact' && isAdminMode ? (
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center px-3 py-1.5 rounded-full bg-burgundy/10 text-burgundy text-xs font-bold hover:bg-burgundy/20 transition-colors"
+                  >
+                    관리자 모드
+                  </Link>
+                ) : null}
+              </React.Fragment>
             ))}
             <Link
               to="/login"
@@ -105,24 +107,27 @@ export function Header() {
         <div className="md:hidden bg-white border-t border-slate-100 animate-in slide-in-from-top duration-300">
           <div className="px-4 pt-2 pb-6 space-y-1">
             {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "block px-3 py-4 text-base font-medium rounded-md",
-                  location.pathname === item.path ? "text-burgundy bg-burgundy/5" : "text-slate-600"
-                )}
-                onClick={() => setIsOpen(false)}
-              >
-                <span className="inline-flex items-center gap-2">
+              <React.Fragment key={item.path}>
+                <Link
+                  to={item.path}
+                  className={cn(
+                    "block px-3 py-4 text-base font-medium rounded-md",
+                    location.pathname === item.path ? "text-burgundy bg-burgundy/5" : "text-slate-600"
+                  )}
+                  onClick={() => setIsOpen(false)}
+                >
                   {item.name}
-                  {item.path === '/contact' && isAdminMode ? (
-                    <span className="px-2 py-0.5 rounded-full bg-burgundy/10 text-burgundy text-[10px] font-bold">
-                      관리자 모드
-                    </span>
-                  ) : null}
-                </span>
-              </Link>
+                </Link>
+                {item.path === '/contact' && isAdminMode ? (
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center justify-center mt-1 ml-3 px-3 py-1.5 rounded-full bg-burgundy/10 text-burgundy text-xs font-bold"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    관리자 모드
+                  </Link>
+                ) : null}
+              </React.Fragment>
             ))}
             <Link
               to="/login"
