@@ -50,12 +50,132 @@ function extractFirstImageFromHtml(html: string) {
   return img?.getAttribute('src') || '';
 }
 
+type VideoEmbedInfo =
+  | { kind: 'youtube'; videoId: string }
+  | { kind: 'mp4'; sourceUrl: string };
+
+function extractYouTubeVideoId(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') {
+      return parsed.pathname.replace(/\//g, '').trim();
+    }
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      if (parsed.pathname === '/watch') {
+        return parsed.searchParams.get('v') || '';
+      }
+      if (parsed.pathname.startsWith('/shorts/')) {
+        return parsed.pathname.split('/')[2] || '';
+      }
+      if (parsed.pathname.startsWith('/embed/')) {
+        return parsed.pathname.split('/')[2] || '';
+      }
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+function detectVideoEmbedInfo(url: string): VideoEmbedInfo | null {
+  const youtubeId = extractYouTubeVideoId(url);
+  if (youtubeId) return { kind: 'youtube', videoId: youtubeId };
+  if (/\.mp4($|\?)/i.test(url)) return { kind: 'mp4', sourceUrl: url };
+  return null;
+}
+
+function buildVideoEmbedNode(info: VideoEmbedInfo) {
+  if (info.kind === 'youtube') {
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube.com/embed/${info.videoId}?autoplay=1&mute=0&rel=0&playsinline=1`;
+    iframe.width = '100%';
+    iframe.height = '420';
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.allowFullscreen = true;
+    iframe.style.width = '100%';
+    iframe.style.maxWidth = '100%';
+    iframe.style.aspectRatio = '16 / 9';
+    iframe.style.border = '0';
+    iframe.style.borderRadius = '8px';
+    iframe.style.margin = '10px 0';
+    return iframe;
+  }
+
+  const video = document.createElement('video');
+  video.src = info.sourceUrl;
+  video.autoplay = true;
+  video.controls = true;
+  video.playsInline = true;
+  video.style.width = '100%';
+  video.style.maxWidth = '100%';
+  video.style.borderRadius = '8px';
+  video.style.margin = '10px 0';
+  return video;
+}
+
+function transformContentWithVideoEmbeds(rawHtml: string) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = rawHtml;
+  const thumbnailCandidates: string[] = [];
+  const textNodes: Text[] = [];
+
+  const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT);
+  let current = walker.nextNode();
+  while (current) {
+    textNodes.push(current as Text);
+    current = walker.nextNode();
+  }
+
+  const urlPattern = /(https?:\/\/[^\s<]+)/gi;
+  textNodes.forEach((node) => {
+    const source = node.textContent || '';
+    if (!source.trim()) return;
+    const matches = [...source.matchAll(urlPattern)];
+    if (matches.length === 0) return;
+
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+
+    matches.forEach((match) => {
+      const foundUrl = match[0];
+      const start = match.index ?? 0;
+      if (start > cursor) {
+        fragment.appendChild(document.createTextNode(source.slice(cursor, start)));
+      }
+
+      const info = detectVideoEmbedInfo(foundUrl);
+      if (info) {
+        fragment.appendChild(buildVideoEmbedNode(info));
+        fragment.appendChild(document.createElement('br'));
+        if (info.kind === 'youtube') {
+          thumbnailCandidates.push(`https://img.youtube.com/vi/${info.videoId}/hqdefault.jpg`);
+        }
+      } else {
+        fragment.appendChild(document.createTextNode(foundUrl));
+      }
+      cursor = start + foundUrl.length;
+    });
+
+    if (cursor < source.length) {
+      fragment.appendChild(document.createTextNode(source.slice(cursor)));
+    }
+
+    node.parentNode?.replaceChild(fragment, node);
+  });
+
+  return {
+    html: wrapper.innerHTML,
+    firstVideoThumbnail: thumbnailCandidates[0] || '',
+  };
+}
+
 function hasRichContent(html: string) {
   const plain = stripHtmlTags(html).trim();
   if (plain) return true;
   const wrapper = document.createElement('div');
   wrapper.innerHTML = html;
-  return Boolean(wrapper.querySelector('img'));
+  return Boolean(wrapper.querySelector('img,iframe,video'));
 }
 
 function getPostPreviewText(content: string) {
@@ -219,8 +339,10 @@ export default function Posts() {
   const handleSubmitPost = async (event: React.FormEvent) => {
     event.preventDefault();
     const rawContent = contentEditorRef.current?.innerHTML || postContentHtmlRef.current || '';
-    const normalizedContent = rawContent.trim();
-    const fallbackImage = postForm.imageUrl || extractFirstImageFromHtml(normalizedContent);
+    const transformed = transformContentWithVideoEmbeds(rawContent);
+    const normalizedContent = transformed.html.trim();
+    const fallbackImage =
+      postForm.imageUrl || extractFirstImageFromHtml(normalizedContent) || transformed.firstVideoThumbnail;
     const payload = {
       title: postForm.title.trim(),
       tags: postForm.tags.trim(),
@@ -378,7 +500,7 @@ export default function Posts() {
               </div>
               <h3 className="text-2xl font-bold text-slate-900">{selectedPost.title}</h3>
               <div
-                className="text-sm leading-7 text-slate-700 whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3"
+                className="text-sm leading-7 text-slate-700 whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3 [&_iframe]:w-full [&_iframe]:max-w-full [&_iframe]:rounded-lg [&_iframe]:my-3 [&_video]:w-full [&_video]:max-w-full [&_video]:rounded-lg [&_video]:my-3"
                 dangerouslySetInnerHTML={{ __html: selectedPost.content }}
               />
             </div>
