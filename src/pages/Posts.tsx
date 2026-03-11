@@ -54,6 +54,24 @@ type VideoEmbedInfo =
   | { kind: 'youtube'; videoId: string }
   | { kind: 'mp4'; sourceUrl: string };
 
+function isNewsLikeUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+    return (
+      host.includes('news') ||
+      host.includes('press') ||
+      host.includes('journal') ||
+      host.includes('times') ||
+      path.includes('/news/') ||
+      path.includes('/article')
+    );
+  } catch {
+    return false;
+  }
+}
+
 function extractYouTubeVideoId(url: string) {
   try {
     const parsed = new URL(url);
@@ -87,6 +105,47 @@ function detectVideoEmbedInfo(url: string): VideoEmbedInfo | null {
 
 function buildYouTubeWatchUrl(videoId: string) {
   return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
+function buildArticleEmbedNode(url: string) {
+  const wrapper = document.createElement('div');
+  wrapper.setAttribute('data-article-embed', 'true');
+  wrapper.style.margin = '10px 0';
+  wrapper.style.padding = '10px';
+  wrapper.style.border = '1px solid #e2e8f0';
+  wrapper.style.borderRadius = '10px';
+  wrapper.style.background = '#f8fafc';
+
+  const iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.loading = 'lazy';
+  iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation');
+  iframe.style.width = '100%';
+  iframe.style.minHeight = '420px';
+  iframe.style.border = '0';
+  iframe.style.borderRadius = '8px';
+  iframe.style.background = '#ffffff';
+
+  const link = document.createElement('a');
+  try {
+    const parsed = new URL(url);
+    link.textContent = `${parsed.hostname.replace(/^www\./, '')} 기사 원문 보기`;
+  } catch {
+    link.textContent = '기사 원문 보기';
+  }
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.style.display = 'inline-block';
+  link.style.marginTop = '8px';
+  link.style.fontSize = '13px';
+  link.style.fontWeight = '700';
+  link.style.color = '#9f1239';
+
+  wrapper.appendChild(iframe);
+  wrapper.appendChild(link);
+  return wrapper;
 }
 
 function buildVideoEmbedNode(info: VideoEmbedInfo) {
@@ -157,6 +216,9 @@ function transformContentWithVideoEmbeds(rawHtml: string) {
         if (info.kind === 'youtube') {
           thumbnailCandidates.push(`https://img.youtube.com/vi/${info.videoId}/hqdefault.jpg`);
         }
+      } else if (isNewsLikeUrl(foundUrl)) {
+        fragment.appendChild(buildArticleEmbedNode(foundUrl));
+        fragment.appendChild(document.createElement('br'));
       } else {
         fragment.appendChild(document.createTextNode(foundUrl));
       }
@@ -188,6 +250,9 @@ function getPostPreviewText(content: string) {
   if (content.includes('data:image/')) {
     return '이미지와 텍스트가 포함된 소식입니다.';
   }
+  if (content.includes('data-article-embed')) {
+    return '기사 링크가 포함된 소식입니다.';
+  }
   return stripHtmlTags(content);
 }
 
@@ -209,9 +274,14 @@ function sanitizePostDetailContent(rawHtml: string) {
   anchors.forEach((anchor) => {
     const href = anchor.getAttribute('href') || '';
     const videoId = extractYouTubeVideoId(href);
-    if (!videoId) return;
-    // Replace plain YouTube links in older posts with inline embeds.
-    anchor.replaceWith(buildVideoEmbedNode({ kind: 'youtube', videoId }));
+    if (videoId) {
+      // Replace plain YouTube links in older posts with inline embeds.
+      anchor.replaceWith(buildVideoEmbedNode({ kind: 'youtube', videoId }));
+      return;
+    }
+    if (isNewsLikeUrl(href)) {
+      anchor.replaceWith(buildArticleEmbedNode(href));
+    }
   });
 
   return wrapper.innerHTML;
