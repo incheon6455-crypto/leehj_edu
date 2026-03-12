@@ -606,7 +606,7 @@ export default function Posts() {
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <div>
             <h1 className="text-4xl font-bold text-slate-900 mb-4">활동 소식</h1>
-            <p className="text-slate-600">교육감 예비<br />후보 이현준의 생생한 활동 현장을 전해드립니다.</p>
+            <p className="text-slate-600">교육감 예비후보<br />이현준의 생생한 활동 현장을 전해드립니다.</p>
           </div>
           {!isLatestOnly && (
             <div className="flex items-center justify-end">
