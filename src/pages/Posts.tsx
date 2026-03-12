@@ -314,6 +314,20 @@ function sanitizePostDetailContent(rawHtml: string) {
   return wrapper.innerHTML;
 }
 
+function applyEditorMediaConstraints(root: HTMLElement) {
+  const images = Array.from(root.querySelectorAll('img'));
+  images.forEach((image) => {
+    image.style.maxWidth = '100%';
+    image.style.width = '100%';
+    image.style.maxHeight = '220px';
+    image.style.height = 'auto';
+    image.style.objectFit = 'contain';
+    image.style.display = 'block';
+    image.style.margin = '8px 0';
+    image.style.borderRadius = '8px';
+  });
+}
+
 export default function Posts() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -438,7 +452,10 @@ export default function Posts() {
     imageNode.src = src;
     imageNode.alt = '첨부 이미지';
     imageNode.style.maxWidth = '100%';
+    imageNode.style.width = '100%';
+    imageNode.style.maxHeight = '220px';
     imageNode.style.height = 'auto';
+    imageNode.style.objectFit = 'contain';
     imageNode.style.display = 'block';
     imageNode.style.margin = '8px 0';
     imageNode.style.borderRadius = '8px';
@@ -457,6 +474,7 @@ export default function Posts() {
       editor.appendChild(document.createElement('br'));
     }
 
+    applyEditorMediaConstraints(editor);
     const nextHtml = editor.innerHTML;
     postContentHtmlRef.current = nextHtml;
     setPostForm((prev) => ({
@@ -718,7 +736,7 @@ export default function Posts() {
           }}
         >
           <div
-            className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-2xl h-[82vh] max-h-[82vh] rounded-2xl bg-white shadow-2xl flex flex-col"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -734,7 +752,7 @@ export default function Posts() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitPost} className="p-5 space-y-4">
+            <form onSubmit={handleSubmitPost} className="p-5 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="text-sm font-semibold text-slate-700">제목</label>
                 <input
@@ -779,12 +797,11 @@ export default function Posts() {
                   ref={contentEditorRef}
                   contentEditable
                   suppressContentEditableWarning
-                  onInput={(event) =>
-                    {
-                      postContentHtmlRef.current = event.currentTarget.innerHTML;
-                    }
-                  }
-                  className="mt-2 min-h-44 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus-within:ring-2 focus-within:ring-burgundy outline-none"
+                  onInput={(event) => {
+                    applyEditorMediaConstraints(event.currentTarget);
+                    postContentHtmlRef.current = event.currentTarget.innerHTML;
+                  }}
+                  className="mt-2 h-56 overflow-y-auto w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus-within:ring-2 focus-within:ring-burgundy outline-none whitespace-pre-wrap break-words [&_img]:max-w-full [&_img]:w-full [&_img]:max-h-[220px] [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-lg [&_img]:my-2"
                 />
               </div>
               <div>
