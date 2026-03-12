@@ -14,7 +14,7 @@ async function fileToDataUrl(file: File) {
   });
 }
 
-async function optimizeImageDataUrl(file: File) {
+async function optimizeImageDataUrl(file: File, maxDataUrlLength = 180_000) {
   const source = await fileToDataUrl(file);
   const image = new Image();
   image.src = source;
@@ -23,8 +23,8 @@ async function optimizeImageDataUrl(file: File) {
     image.onerror = () => reject(new Error('이미지 미리보기를 생성하지 못했습니다.'));
   });
 
-  const maxWidth = 960;
-  const maxHeight = 960;
+  const maxWidth = 780;
+  const maxHeight = 780;
   const scale = Math.min(1, maxWidth / image.width, maxHeight / image.height);
   const width = Math.max(1, Math.round(image.width * scale));
   const height = Math.max(1, Math.round(image.height * scale));
@@ -36,8 +36,8 @@ async function optimizeImageDataUrl(file: File) {
   ctx.drawImage(image, 0, 0, width, height);
   let quality = 0.82;
   let result = canvas.toDataURL('image/jpeg', quality);
-  while (result.length > 500_000 && quality > 0.55) {
-    quality -= 0.08;
+  while (result.length > maxDataUrlLength && quality > 0.32) {
+    quality -= 0.06;
     result = canvas.toDataURL('image/jpeg', quality);
   }
   return result;
@@ -525,6 +525,10 @@ export default function Posts() {
 
     if (!payload.title || !hasRichContent(payload.content)) {
       setPostSubmitError('제목과 내용을 입력해 주세요.');
+      return;
+    }
+    if (payload.content.length > 900_000) {
+      setPostSubmitError('본문 이미지 용량이 큽니다. 사진 수를 줄이거나 다시 업로드해 주세요.');
       return;
     }
 

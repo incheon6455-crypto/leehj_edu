@@ -367,6 +367,52 @@ async function submitSupportMessageViaRest(payload: { name: string; phone: strin
   }
 }
 
+async function createPostViaRest(payload: {
+  title: string;
+  content: string;
+  tags: string;
+  image_url: string;
+}) {
+  const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/posts?key=${firebaseConfig.apiKey}`;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        fields: {
+          title: { stringValue: payload.title },
+          content: { stringValue: payload.content },
+          tags: { stringValue: payload.tags },
+          image_url: { stringValue: payload.image_url },
+          date: { timestampValue: new Date().toISOString() },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `REST write failed (${response.status})`);
+    }
+
+    const json = (await response.json()) as { name?: string };
+    const id = (json.name?.split('/').pop() || `post-rest-${Date.now()}`).trim();
+    return {
+      id,
+      title: payload.title,
+      content: payload.content,
+      tags: payload.tags,
+      image_url: payload.image_url,
+      date: new Date().toISOString(),
+    } satisfies Post;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export async function getPosts(): Promise<Post[]> {
   if (!db || !isFirebaseConfigured) return FALLBACK_POSTS;
   try {
@@ -397,13 +443,17 @@ export async function createPost(payload: {
 }) {
   if (!db || !isFirebaseConfigured) return null;
   try {
-    const ref = await addDoc(collection(db, 'posts'), {
-      title: payload.title,
-      content: payload.content,
-      tags: payload.tags,
-      image_url: payload.image_url,
-      date: serverTimestamp(),
-    });
+    const ref = await withPromiseTimeout(
+      addDoc(collection(db, 'posts'), {
+        title: payload.title,
+        content: payload.content,
+        tags: payload.tags,
+        image_url: payload.image_url,
+        date: serverTimestamp(),
+      }),
+      7000,
+      'sdk-timeout'
+    );
 
     return {
       id: ref.id,
@@ -414,6 +464,21 @@ export async function createPost(payload: {
       date: new Date().toISOString(),
     } satisfies Post;
   } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    const canFallback =
+      message.includes('sdk-timeout') ||
+      message.includes('unavailable') ||
+      message.includes('network') ||
+      message.includes('Failed to fetch');
+
+    if (canFallback) {
+      try {
+        return await createPostViaRest(payload);
+      } catch (restError) {
+        throw normalizeFirestoreError(restError);
+      }
+    }
+
     throw normalizeFirestoreError(error);
   }
 }
