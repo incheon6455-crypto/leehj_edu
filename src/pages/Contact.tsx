@@ -107,8 +107,8 @@ export default function Contact() {
                   <p className="font-bold text-slate-800">010-4619-6455</p>
                 </div>
                 <div className="rounded-xl bg-white p-4 border border-slate-100">
-                  <p className="text-slate-400 mb-1">문의 이메일</p>
-                  <p className="font-bold text-slate-800">incheon6455@naver.com</p>
+                  <p className="text-slate-400 mb-1">후원 계좌안내</p>
+                  <p className="font-bold text-slate-800">신한은행 110-528-349201 (예금주: 이현준캠프)</p>
                 </div>
               </div>
             </div>
