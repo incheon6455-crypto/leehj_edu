@@ -32,6 +32,15 @@ function CountUp({ value }: { value: number }) {
   return <motion.span>{display}</motion.span>;
 }
 
+function isReloadNavigation() {
+  if (typeof window === 'undefined') return false;
+  const entries = performance.getEntriesByType('navigation');
+  const navEntry = entries[0] as PerformanceNavigationTiming | undefined;
+  if (navEntry?.type === 'reload') return true;
+  const legacyNavigation = (performance as Performance & { navigation?: { type?: number } }).navigation;
+  return legacyNavigation?.type === 1;
+}
+
 export function KPISection() {
   const [stats, setStats] = useState({ visitors: 0, posts: 0, events: 0 });
 
@@ -65,8 +74,10 @@ export function KPISection() {
     const syncStats = async () => {
       const cycleKey = get6amCycleKey();
       const adminLoggedIn = await isAdminLoggedIn();
+      const isMobileViewport = window.matchMedia('(max-width: 1023px)').matches;
+      const isMobileReload = isMobileViewport && isReloadNavigation();
       const alreadyCountedInSession = sessionStorage.getItem(VISITOR_COUNTED_SESSION_KEY) === '1';
-      if (!adminLoggedIn && !alreadyCountedInSession) {
+      if (!adminLoggedIn && !alreadyCountedInSession && !isMobileReload) {
         // Lock first to avoid duplicate increments during rapid remounts.
         sessionStorage.setItem(VISITOR_COUNTED_SESSION_KEY, '1');
         const counted = await incrementVisitCount(cycleKey);
