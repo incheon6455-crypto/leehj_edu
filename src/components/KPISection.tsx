@@ -10,6 +10,7 @@ import {
 } from '../lib/firebaseData';
 
 const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
+const VISITOR_COUNTED_SESSION_KEY = 'visitor_counted_in_session';
 
 function get6amCycleKey(now: Date = new Date()) {
   const cycleStart = new Date(now);
@@ -64,8 +65,12 @@ export function KPISection() {
     const syncStats = async () => {
       const cycleKey = get6amCycleKey();
       const adminLoggedIn = await isAdminLoggedIn();
-      if (!adminLoggedIn) {
-        await incrementVisitCount(cycleKey);
+      const alreadyCountedInSession = sessionStorage.getItem(VISITOR_COUNTED_SESSION_KEY) === '1';
+      if (!adminLoggedIn && !alreadyCountedInSession) {
+        const counted = await incrementVisitCount(cycleKey);
+        if (counted) {
+          sessionStorage.setItem(VISITOR_COUNTED_SESSION_KEY, '1');
+        }
       }
 
       const data = await getStats();
