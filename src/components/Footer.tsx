@@ -49,7 +49,7 @@ export function Footer() {
               </li>
               <li className="flex items-center gap-3">
                 <Mail size={18} className="text-gold shrink-0" />
-                <span>{CONFIG.contact.email}</span>
+                <span>incheon6455@naver.com</span>
               </li>
             </ul>
           </div>
