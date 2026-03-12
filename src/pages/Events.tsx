@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, MapPin, Clock, Plus } from 'lucide-react';
+import { Calendar, MapPin, Clock, Plus, X } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 import { createEvent, getEvents, type EventItem } from '../lib/firebaseData';
 
@@ -82,14 +82,101 @@ export default function Events() {
           </div>
         </div>
 
-        {isFormOpen && (
+        {submitSuccess && (
+          <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {submitSuccess}
+          </div>
+        )}
+
+        <div className="flex justify-center mb-12">
+          <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 flex gap-1">
+            <button
+              onClick={() => setActiveTab('upcoming')}
+              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
+                activeTab === 'upcoming' ? 'bg-burgundy text-white' : 'text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              다가오는 행사
+            </button>
+            <button
+              onClick={() => setActiveTab('past')}
+              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
+                activeTab === 'past' ? 'bg-burgundy text-white' : 'text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              지난 행사
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {filteredEvents.map((event, i) => (
+            <motion.div
+              key={event.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-5 items-center hover:shadow-md transition-all"
+            >
+              <div className="w-full md:w-28 h-16 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 shrink-0">
+                <span className="text-burgundy font-bold text-lg">
+                  {new Date(event.date).getMonth() + 1}월 {new Date(event.date).getDate()}일
+                </span>
+              </div>
+              
+              <div className="flex-1 space-y-4 text-center md:text-left">
+                <div className="flex flex-wrap justify-center md:justify-start gap-4 text-slate-500 text-sm">
+                  <span className="flex items-center gap-1.5"><Calendar size={16} className="text-burgundy" /> {formatDate(event.date)}</span>
+                  <span className="flex items-center gap-1.5"><Clock size={16} className="text-burgundy" /> 14:00</span>
+                  <span className="flex items-center gap-1.5"><MapPin size={16} className="text-burgundy" /> {event.location}</span>
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900">{event.title}</h3>
+                <p className="text-slate-600">{event.description}</p>
+              </div>
+            </motion.div>
+          ))}
+          
+          {filteredEvents.length === 0 && (
+            <div className="text-center py-24 text-slate-400 bg-white rounded-3xl border border-dashed border-slate-200">
+              표시할 행사가 없습니다.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button
+            type="button"
+            aria-label="행사 등록 닫기"
+            onClick={() => {
+              setSubmitError('');
+              setSubmitSuccess('');
+              setIsFormOpen(false);
+            }}
+            className="absolute inset-0 bg-slate-900/55"
+          />
           <motion.form
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             onSubmit={handleCreateEvent}
-            className="mb-10 bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm"
+            className="relative z-10 w-full max-w-2xl bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-2xl"
           >
-            <h2 className="text-xl font-bold text-slate-900 mb-6">새 행사 등록</h2>
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <h2 className="text-xl font-bold text-slate-900">새 행사 등록</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmitError('');
+                  setSubmitSuccess('');
+                  setIsFormOpen(false);
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                <X size={16} />
+                닫기
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="flex flex-col gap-2">
                 <span className="text-sm font-semibold text-slate-700">행사명</span>
@@ -143,72 +230,8 @@ export default function Events() {
               </button>
             </div>
           </motion.form>
-        )}
-
-        {submitSuccess && (
-          <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {submitSuccess}
-          </div>
-        )}
-
-        <div className="flex justify-center mb-12">
-          <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 flex gap-1">
-            <button
-              onClick={() => setActiveTab('upcoming')}
-              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'upcoming' ? 'bg-burgundy text-white' : 'text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              다가오는 행사
-            </button>
-            <button
-              onClick={() => setActiveTab('past')}
-              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'past' ? 'bg-burgundy text-white' : 'text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              지난 행사
-            </button>
-          </div>
         </div>
-
-        <div className="space-y-6">
-          {filteredEvents.map((event, i) => (
-            <motion.div
-              key={event.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-5 items-center hover:shadow-md transition-all"
-            >
-              <div className="w-full md:w-28 h-24 md:h-28 bg-slate-50 rounded-2xl flex flex-col items-center justify-center border border-slate-100 shrink-0">
-                <span className="text-burgundy font-bold text-2xl">
-                  {new Date(event.date).getDate()}
-                </span>
-                <span className="text-slate-400 text-xs font-bold uppercase">
-                  {new Date(event.date).toLocaleDateString('ko-KR', { month: 'short' })}
-                </span>
-              </div>
-              
-              <div className="flex-1 space-y-4 text-center md:text-left">
-                <div className="flex flex-wrap justify-center md:justify-start gap-4 text-slate-500 text-sm">
-                  <span className="flex items-center gap-1.5"><Calendar size={16} className="text-burgundy" /> {formatDate(event.date)}</span>
-                  <span className="flex items-center gap-1.5"><Clock size={16} className="text-burgundy" /> 14:00</span>
-                  <span className="flex items-center gap-1.5"><MapPin size={16} className="text-burgundy" /> {event.location}</span>
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900">{event.title}</h3>
-                <p className="text-slate-600">{event.description}</p>
-              </div>
-            </motion.div>
-          ))}
-          
-          {filteredEvents.length === 0 && (
-            <div className="text-center py-24 text-slate-400 bg-white rounded-3xl border border-dashed border-slate-200">
-              표시할 행사가 없습니다.
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
