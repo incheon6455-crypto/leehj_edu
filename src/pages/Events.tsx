@@ -22,6 +22,8 @@ export default function Events() {
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
+  const [visibleCount, setVisibleCount] = useState(9);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const dateTimeInputRef = useRef<HTMLInputElement | null>(null);
   const [eventForm, setEventForm] = useState({
     title: '',
@@ -96,6 +98,29 @@ export default function Events() {
     const isPast = isPastEvent(eventItem);
     return activeTab === 'past' ? isPast : !isPast;
   });
+  const visibleEvents = filteredEvents.slice(0, visibleCount);
+
+  useEffect(() => {
+    setVisibleCount(9);
+  }, [activeTab, events]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+    if (visibleCount >= filteredEvents.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        if (!firstEntry?.isIntersecting) return;
+        setVisibleCount((prev) => Math.min(prev + 9, filteredEvents.length));
+      },
+      { root: null, rootMargin: '120px 0px', threshold: 0.01 }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [filteredEvents.length, visibleCount]);
 
   const formatEventTime = (dateValue: string) => {
     const parsed = new Date(dateValue);
@@ -197,7 +222,7 @@ export default function Events() {
         </div>
 
         <div className="space-y-6">
-          {filteredEvents.map((event, i) => (
+          {visibleEvents.map((event, i) => (
             <motion.div
               key={event.id}
               initial={{ opacity: 0, x: -20 }}
@@ -240,6 +265,8 @@ export default function Events() {
               )}
             </motion.div>
           ))}
+
+          {filteredEvents.length > visibleCount && <div ref={loadMoreRef} className="h-10" aria-hidden="true" />}
           
           {filteredEvents.length === 0 && (
             <div className="text-center py-24 text-slate-400 bg-white rounded-3xl border border-dashed border-slate-200">
