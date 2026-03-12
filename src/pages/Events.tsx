@@ -116,9 +116,9 @@ export default function Events() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-5 items-center hover:shadow-md transition-all"
+              className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center hover:shadow-md transition-all"
             >
-              <div className="w-full md:w-28 h-16 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 shrink-0">
+              <div className="w-full md:w-28 h-14 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 shrink-0">
                 <span className="text-burgundy font-bold text-lg">
                   {new Date(event.date).getMonth() + 1}월 {new Date(event.date).getDate()}일
                 </span>
@@ -129,7 +129,7 @@ export default function Events() {
                   <span className="flex items-center gap-1.5"><Calendar size={16} className="text-burgundy" /> {formatDate(event.date)}</span>
                   <span className="flex items-center gap-1.5"><Clock size={16} className="text-burgundy" /> 14:00</span>
                   <span className="flex items-center gap-1.5"><MapPin size={16} className="text-burgundy" /> {event.location}</span>
-                  <span className="text-lg font-bold text-slate-900">{event.title}</span>
+                  <span className="text-xl font-bold text-slate-900">{event.title}</span>
                   <span className="text-slate-600">{event.description}</span>
                 </div>
               </div>
