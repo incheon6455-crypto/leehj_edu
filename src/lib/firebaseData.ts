@@ -463,6 +463,18 @@ export async function deleteEvent(eventId: string) {
   }
 }
 
+export async function markEventAsPast(eventId: string) {
+  if (!db || !isFirebaseConfigured) return;
+  try {
+    await updateDoc(doc(db, 'events', eventId), {
+      is_past: 1,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function getStats() {
   const cycleKey = get6amCycleKey();
   if (!db || !isFirebaseConfigured) {

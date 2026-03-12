@@ -7,6 +7,7 @@ import {
   createEvent,
   getAdminSessionProfile,
   getEvents,
+  markEventAsPast,
   type EventItem,
 } from '../lib/firebaseData';
 
@@ -17,6 +18,7 @@ export default function Events() {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [finishingEventId, setFinishingEventId] = useState<string | null>(null);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
@@ -84,8 +86,13 @@ export default function Events() {
     }
   }, [isAdminUser, isFormOpen]);
 
-  const filteredEvents = events.filter(e => {
-    const isPast = new Date(e.date) < new Date();
+  const isPastEvent = (eventItem: EventItem) => {
+    if (Number(eventItem.is_past) === 1) return true;
+    return new Date(eventItem.date) < new Date();
+  };
+
+  const filteredEvents = events.filter((eventItem) => {
+    const isPast = isPastEvent(eventItem);
     return activeTab === 'past' ? isPast : !isPast;
   });
 
@@ -115,6 +122,20 @@ export default function Events() {
       setSubmitError('행사 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleMarkEventAsPast = async (eventId: string) => {
+    setSubmitError('');
+    setSubmitSuccess('');
+    setFinishingEventId(eventId);
+    try {
+      await markEventAsPast(eventId);
+      await loadEvents();
+    } catch {
+      setSubmitError('행사 마침 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setFinishingEventId(null);
     }
   };
 
@@ -190,13 +211,26 @@ export default function Events() {
                   <span className="flex items-center gap-1.5"><MapPin size={16} className="text-burgundy" /> {event.location}</span>
                   <span className="text-xl font-bold text-slate-900">{event.title}</span>
                   <span className="text-slate-600">{event.description}</span>
-                  {new Date(event.date) < new Date() && (
+                  {isPastEvent(event) && (
                     <span className="inline-flex items-center rounded-full bg-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700">
                       지난 행사
                     </span>
                   )}
                 </div>
               </div>
+
+              {isAdminUser && !isPastEvent(event) && (
+                <div className="w-full md:w-auto md:ml-auto flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleMarkEventAsPast(event.id)}
+                    disabled={finishingEventId === event.id}
+                    className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 transition-all disabled:opacity-50"
+                  >
+                    {finishingEventId === event.id ? '처리 중...' : '행사 마침'}
+                  </button>
+                </div>
+              )}
             </motion.div>
           ))}
           
