@@ -573,38 +573,39 @@ export async function markEventAsPast(eventId: string) {
 }
 
 export async function getStats() {
-  const cycleKey = get6amCycleKey();
   if (!db || !isFirebaseConfigured) {
     const [posts, events] = await Promise.all([getPosts(), getEvents()]);
-    return { posts: posts.length, events: events.length, supportMessages: 0, visitorsToday: 0 };
+    return { posts: posts.length, events: events.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
   }
 
   try {
     const postsRef = collection(db, 'posts');
     const eventsRef = collection(db, 'events');
     const supportRef = collection(db, 'support_messages');
+    const visitorsRef = collection(db, 'visitors');
 
-    const [postsCountResult, eventsCountResult, supportCountResult, visitorsTodayResult] = await Promise.allSettled([
+    const [postsCountResult, eventsCountResult, supportCountResult, visitorsTotalResult] = await Promise.allSettled([
       getCountFromServer(postsRef),
       getCountFromServer(eventsRef),
       getCountFromServer(supportRef),
-      getVisitorCounterTotal(cycleKey, true),
+      getCountFromServer(visitorsRef),
     ]);
 
     const postsCount = postsCountResult.status === 'fulfilled' ? postsCountResult.value.data().count : 0;
     const eventsCount = eventsCountResult.status === 'fulfilled' ? eventsCountResult.value.data().count : 0;
     const supportCount = supportCountResult.status === 'fulfilled' ? supportCountResult.value.data().count : 0;
-    const visitorsToday = visitorsTodayResult.status === 'fulfilled' ? visitorsTodayResult.value : 0;
+    const visitorsTotal = visitorsTotalResult.status === 'fulfilled' ? visitorsTotalResult.value.data().count : 0;
 
     return {
       posts: postsCount,
       events: eventsCount,
       supportMessages: supportCount,
-      visitorsToday,
+      visitorsToday: visitorsTotal,
+      visitorsTotal,
     };
   } catch {
     const [posts, events] = await Promise.all([getPosts(), getEvents()]);
-    return { posts: posts.length, events: events.length, supportMessages: 0, visitorsToday: 0 };
+    return { posts: posts.length, events: events.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
   }
 }
 

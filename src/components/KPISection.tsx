@@ -37,7 +37,7 @@ export function KPISection() {
       const data = await getStats();
       if (cancelled) return;
       setStats({
-        visitors: Number(data?.visitorsToday) || 0,
+        visitors: Number(data?.visitorsTotal) || 0,
         posts: Number(data?.posts) || 0,
         events: Number(data?.events) || 0,
       });
@@ -50,7 +50,7 @@ export function KPISection() {
   }, []);
 
   const cards = [
-    { label: '오늘 하루 방문자', value: stats.visitors, icon: Users, color: 'text-burgundy' },
+    { label: '총 누적 방문자', value: stats.visitors, icon: Users, color: 'text-burgundy' },
     { label: '게시물', value: stats.posts, icon: FileText, color: 'text-blue-600' },
     { label: '예정된 행사', value: stats.events, icon: Calendar, color: 'text-emerald-600' },
   ];
