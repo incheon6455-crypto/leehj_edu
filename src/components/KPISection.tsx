@@ -2,7 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { motion, useSpring, useTransform } from 'motion/react';
 import { Users, FileText, Calendar } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { getStats, incrementVisitCount } from '../lib/firebaseData';
+import {
+  ADMIN_SESSION_STORAGE_KEY,
+  getAdminSessionProfile,
+  getStats,
+  incrementVisitCount,
+} from '../lib/firebaseData';
+
+const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 
 function get6amCycleKey(now: Date = new Date()) {
   const cycleStart = new Date(now);
@@ -30,9 +37,36 @@ export function KPISection() {
   useEffect(() => {
     let cancelled = false;
 
+    const isAdminLoggedIn = async () => {
+      let isAdmin = false;
+
+      try {
+        const sessionToken = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+        if (sessionToken) {
+          const profile = await getAdminSessionProfile(sessionToken);
+          isAdmin = String(profile?.role || '').toLowerCase() === 'admin';
+        }
+
+        if (!isAdmin) {
+          const cachedProfileRaw = sessionStorage.getItem(ADMIN_PROFILE_STORAGE_KEY) || '';
+          if (cachedProfileRaw) {
+            const cachedProfile = JSON.parse(cachedProfileRaw) as { role?: string };
+            isAdmin = String(cachedProfile?.role || '').toLowerCase() === 'admin';
+          }
+        }
+      } catch {
+        isAdmin = false;
+      }
+
+      return isAdmin;
+    };
+
     const syncStats = async () => {
       const cycleKey = get6amCycleKey();
-      await incrementVisitCount(cycleKey);
+      const adminLoggedIn = await isAdminLoggedIn();
+      if (!adminLoggedIn) {
+        await incrementVisitCount(cycleKey);
+      }
 
       const data = await getStats();
       if (cancelled) return;
