@@ -131,6 +131,11 @@ export default function Events() {
                   <span className="flex items-center gap-1.5"><MapPin size={16} className="text-burgundy" /> {event.location}</span>
                   <span className="text-xl font-bold text-slate-900">{event.title}</span>
                   <span className="text-slate-600">{event.description}</span>
+                  {new Date(event.date) < new Date() && (
+                    <span className="inline-flex items-center rounded-full bg-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700">
+                      지난 행사
+                    </span>
+                  )}
                 </div>
               </div>
             </motion.div>
