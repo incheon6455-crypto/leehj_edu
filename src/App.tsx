@@ -20,10 +20,62 @@ function ScrollToTop() {
   return null;
 }
 
+function MobilePullToRefresh() {
+  useEffect(() => {
+    const isMobileViewport = () => window.matchMedia('(max-width: 1023px)').matches;
+
+    let tracking = false;
+    let startY = 0;
+    let pullDistance = 0;
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (!isMobileViewport()) return;
+      if (window.scrollY > 0) return;
+      if (event.touches.length !== 1) return;
+      tracking = true;
+      startY = event.touches[0].clientY;
+      pullDistance = 0;
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (!tracking) return;
+      const delta = event.touches[0].clientY - startY;
+      if (delta <= 0) {
+        tracking = false;
+        pullDistance = 0;
+        return;
+      }
+      pullDistance = delta;
+    };
+
+    const onTouchEnd = () => {
+      if (!tracking) return;
+      tracking = false;
+      if (pullDistance >= 90) {
+        window.location.reload();
+      }
+      pullDistance = 0;
+    };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
+
+  return null;
+}
+
 export default function App() {
   return (
     <Router>
       <ScrollToTop />
+      <MobilePullToRefresh />
       <div className="min-h-screen flex flex-col font-sans">
         <Header />
         <main className="flex-grow">
