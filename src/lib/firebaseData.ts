@@ -421,6 +421,39 @@ export async function getEvents(): Promise<EventItem[]> {
   }
 }
 
+export async function createEvent(payload: {
+  title: string;
+  description: string;
+  date: string;
+  location: string;
+}) {
+  if (!db || !isFirebaseConfigured) return null;
+  try {
+    const eventDate = new Date(payload.date);
+    const isPast = Number.isNaN(eventDate.getTime()) ? 0 : (eventDate < new Date() ? 1 : 0);
+
+    const ref = await addDoc(collection(db, 'events'), {
+      title: payload.title,
+      description: payload.description,
+      date: Number.isNaN(eventDate.getTime()) ? payload.date : eventDate,
+      location: payload.location,
+      is_past: isPast,
+      createdAt: serverTimestamp(),
+    });
+
+    return {
+      id: ref.id,
+      title: payload.title,
+      description: payload.description,
+      date: Number.isNaN(eventDate.getTime()) ? new Date().toISOString() : eventDate.toISOString(),
+      location: payload.location,
+      is_past: isPast,
+    } satisfies EventItem;
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function deleteEvent(eventId: string) {
   if (!db || !isFirebaseConfigured) return;
   try {
