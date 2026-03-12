@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import Home from './pages/Home';
@@ -21,12 +22,15 @@ function ScrollToTop() {
 }
 
 function MobilePullToRefresh() {
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+
   useEffect(() => {
     const isMobileViewport = () => window.matchMedia('(max-width: 1023px)').matches;
 
     let tracking = false;
     let startY = 0;
-    let pullDistance = 0;
+    let currentPullDistance = 0;
 
     const onTouchStart = (event: TouchEvent) => {
       if (!isMobileViewport()) return;
@@ -34,7 +38,9 @@ function MobilePullToRefresh() {
       if (event.touches.length !== 1) return;
       tracking = true;
       startY = event.touches[0].clientY;
-      pullDistance = 0;
+      currentPullDistance = 0;
+      setPullDistance(0);
+      setIsPulling(true);
     };
 
     const onTouchMove = (event: TouchEvent) => {
@@ -42,19 +48,24 @@ function MobilePullToRefresh() {
       const delta = event.touches[0].clientY - startY;
       if (delta <= 0) {
         tracking = false;
-        pullDistance = 0;
+        currentPullDistance = 0;
+        setPullDistance(0);
+        setIsPulling(false);
         return;
       }
-      pullDistance = delta;
+      currentPullDistance = Math.min(delta, 140);
+      setPullDistance(currentPullDistance);
     };
 
     const onTouchEnd = () => {
       if (!tracking) return;
       tracking = false;
-      if (pullDistance >= 90) {
+      if (currentPullDistance >= 90) {
         window.location.reload();
       }
-      pullDistance = 0;
+      currentPullDistance = 0;
+      setPullDistance(0);
+      setIsPulling(false);
     };
 
     window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -68,7 +79,30 @@ function MobilePullToRefresh() {
     };
   }, []);
 
-  return null;
+  const progress = Math.min(pullDistance / 90, 1);
+  const iconVisible = isPulling && pullDistance > 0;
+
+  return (
+    <div
+      className="pointer-events-none fixed left-1/2 top-3 z-[70] -translate-x-1/2 md:hidden transition-all duration-200"
+      style={{
+        opacity: iconVisible ? 1 : 0,
+        transform: `translateX(-50%) translateY(${iconVisible ? 0 : -10}px)`,
+      }}
+      aria-hidden="true"
+    >
+      <div className="inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-burgundy shadow-md border border-burgundy/20">
+        <RefreshCw
+          size={16}
+          style={{
+            transform: `rotate(${Math.floor(progress * 360)}deg)`,
+            opacity: 0.85 + progress * 0.15,
+          }}
+        />
+        <span className="text-xs font-semibold">{progress >= 1 ? '새로고침' : '당겨서 새로고침'}</span>
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
