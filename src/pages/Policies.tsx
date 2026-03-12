@@ -366,6 +366,8 @@ export default function Policies() {
                       const message = error instanceof Error ? error.message : '';
                       if (message.includes('permission-denied') || message.includes('Missing or insufficient permissions')) {
                         setSubmitError('Firebase 권한 설정으로 제출이 차단되었습니다. rules를 확인해 주세요.');
+                      } else if (message.includes('duplicate-member')) {
+                        setSubmitError('이미 등록된 회원 정보(이름 또는 연락처)입니다. 중복 저장할 수 없습니다.');
                       } else {
                         setSubmitError('제안 제출에 실패했습니다. 잠시 후 다시 시도해 주세요.');
                       }

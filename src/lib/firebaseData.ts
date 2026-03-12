@@ -299,6 +299,55 @@ function withPromiseTimeout<T>(promise: Promise<T>, timeoutMs: number, message: 
   });
 }
 
+function formatPhoneWithHyphen(digits: string) {
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  return digits;
+}
+
+function buildPhoneCandidates(phone: string) {
+  const trimmed = phone.trim();
+  const digits = trimmed.replace(/\D/g, '');
+  const candidates = new Set<string>();
+  if (trimmed) candidates.add(trimmed);
+  if (digits) {
+    candidates.add(digits);
+    const hyphenated = formatPhoneWithHyphen(digits);
+    if (hyphenated) candidates.add(hyphenated);
+  }
+  return [...candidates];
+}
+
+async function hasDuplicateMemberIdentity(payload: { name: string; phone: string }) {
+  if (!db || !isFirebaseConfigured) return false;
+
+  const name = payload.name.trim();
+  const phoneCandidates = buildPhoneCandidates(payload.phone);
+
+  const checks: Array<Promise<boolean>> = [];
+
+  if (name) {
+    checks.push(
+      getDocs(query(collection(db, 'support_messages'), where('name', '==', name), limit(1))).then((snap) => !snap.empty),
+      getDocs(query(collection(db, 'policy_proposals'), where('proposer', '==', name), limit(1))).then((snap) => !snap.empty),
+      getDocs(query(collection(db, 'admin_members'), where('name', '==', name), limit(1))).then((snap) => !snap.empty)
+    );
+  }
+
+  phoneCandidates.forEach((phone) => {
+    checks.push(
+      getDocs(query(collection(db, 'support_messages'), where('phone', '==', phone), limit(1))).then((snap) => !snap.empty),
+      getDocs(query(collection(db, 'policy_proposals'), where('phone', '==', phone), limit(1))).then((snap) => !snap.empty),
+      getDocs(query(collection(db, 'admin_members'), where('phone', '==', phone), limit(1))).then((snap) => !snap.empty)
+    );
+  });
+
+  if (checks.length === 0) return false;
+  const results = await Promise.all(checks);
+  return results.some(Boolean);
+}
+
 async function submitSupportMessageViaRest(payload: { name: string; phone: string; content: string }) {
   const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/support_messages?key=${firebaseConfig.apiKey}`;
   const controller = new AbortController();
@@ -589,6 +638,11 @@ export async function getSupportMessages(): Promise<SupportMessageItem[]> {
 export async function submitSupportMessage(payload: { name: string; phone: string; content: string }) {
   if (!db || !isFirebaseConfigured) return null;
   try {
+    const isDuplicate = await hasDuplicateMemberIdentity({ name: payload.name, phone: payload.phone });
+    if (isDuplicate) {
+      throw new Error('duplicate-member');
+    }
+
     const docRef = await withPromiseTimeout(
       addDoc(collection(db, 'support_messages'), {
         name: payload.name,
@@ -867,6 +921,11 @@ export async function submitPolicyProposal(payload: { proposer: string; phone: s
   if (!db || !isFirebaseConfigured) return null;
 
   try {
+    const isDuplicate = await hasDuplicateMemberIdentity({ name: payload.proposer, phone: payload.phone });
+    if (isDuplicate) {
+      throw new Error('duplicate-member');
+    }
+
     const docRef = await addDoc(collection(db, 'policy_proposals'), {
       proposer: payload.proposer,
       phone: payload.phone,

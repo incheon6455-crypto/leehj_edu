@@ -285,6 +285,8 @@ export default function Home() {
       const message = error instanceof Error ? error.message : '';
       if (message.includes('permission-denied') || message.includes('Missing or insufficient permissions')) {
         setSupportSubmitError('Firebase 권한 설정으로 저장이 차단되었습니다. Firestore rules를 배포해 주세요.');
+      } else if (message.includes('duplicate-member')) {
+        setSupportSubmitError('이미 등록된 회원 정보(이름 또는 연락처)입니다. 중복 저장할 수 없습니다.');
       } else if (message.includes('unauthenticated')) {
         setSupportSubmitError('Firebase 인증 상태 문제로 저장이 실패했습니다. 앱 설정을 확인해 주세요.');
       } else if (message.includes('failed-precondition')) {
