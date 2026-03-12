@@ -67,9 +67,11 @@ export function KPISection() {
       const adminLoggedIn = await isAdminLoggedIn();
       const alreadyCountedInSession = sessionStorage.getItem(VISITOR_COUNTED_SESSION_KEY) === '1';
       if (!adminLoggedIn && !alreadyCountedInSession) {
+        // Lock first to avoid duplicate increments during rapid remounts.
+        sessionStorage.setItem(VISITOR_COUNTED_SESSION_KEY, '1');
         const counted = await incrementVisitCount(cycleKey);
-        if (counted) {
-          sessionStorage.setItem(VISITOR_COUNTED_SESSION_KEY, '1');
+        if (!counted) {
+          sessionStorage.removeItem(VISITOR_COUNTED_SESSION_KEY);
         }
       }
 

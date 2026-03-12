@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
+import { ChevronLeft, Home as HomeIcon, RefreshCw } from 'lucide-react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import Home from './pages/Home';
@@ -105,11 +105,46 @@ function MobilePullToRefresh() {
   );
 }
 
+function MobileBackControls() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  if (location.pathname === '/') return null;
+
+  return (
+    <div className="fixed bottom-5 right-4 z-[70] flex items-center gap-2 md:hidden">
+      <button
+        type="button"
+        onClick={() => {
+          if (window.history.length > 1) {
+            window.history.back();
+            return;
+          }
+          navigate('/');
+        }}
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md"
+        aria-label="뒤로가기"
+      >
+        <ChevronLeft size={20} />
+      </button>
+      <button
+        type="button"
+        onClick={() => navigate('/')}
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-burgundy/20 bg-white/95 text-burgundy shadow-md"
+        aria-label="홈으로 이동"
+      >
+        <HomeIcon size={18} />
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <Router>
       <ScrollToTop />
       <MobilePullToRefresh />
+      <MobileBackControls />
       <div className="min-h-screen flex flex-col font-sans">
         <Header />
         <main className="flex-grow">
