@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, MapPin, Clock, Plus, X } from 'lucide-react';
+import { Calendar, CalendarClock, MapPin, Clock, Plus, X } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 import {
   ADMIN_SESSION_STORAGE_KEY,
@@ -22,6 +22,7 @@ export default function Events() {
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
+  const dateTimeInputRef = useRef<HTMLInputElement | null>(null);
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
@@ -95,6 +96,12 @@ export default function Events() {
     const isPast = isPastEvent(eventItem);
     return activeTab === 'past' ? isPast : !isPast;
   });
+
+  const formatEventTime = (dateValue: string) => {
+    const parsed = new Date(dateValue);
+    if (Number.isNaN(parsed.getTime())) return '-';
+    return parsed.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
 
   const handleCreateEvent = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -207,7 +214,7 @@ export default function Events() {
               <div className="flex-1">
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-5 gap-y-2 text-sm">
                   <span className="flex items-center gap-1.5"><Calendar size={16} className="text-burgundy" /> {formatDate(event.date)}</span>
-                  <span className="flex items-center gap-1.5"><Clock size={16} className="text-burgundy" /> 14:00</span>
+                  <span className="flex items-center gap-1.5"><Clock size={16} className="text-burgundy" /> {formatEventTime(event.date)}</span>
                   <span className="flex items-center gap-1.5"><MapPin size={16} className="text-burgundy" /> {event.location}</span>
                   <span className="text-xl font-bold text-slate-900">{event.title}</span>
                   <span className="text-slate-600">{event.description}</span>
@@ -287,13 +294,33 @@ export default function Events() {
                 />
               </label>
               <label className="flex flex-col gap-2">
-                <span className="text-sm font-semibold text-slate-700">날짜</span>
-                <input
-                  type="date"
-                  value={eventForm.date}
-                  onChange={(event) => setEventForm((prev) => ({ ...prev, date: event.target.value }))}
-                  className="rounded-xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-burgundy/30"
-                />
+                <span className="text-sm font-semibold text-slate-700">날짜/시간</span>
+                <div className="relative">
+                  <input
+                    ref={dateTimeInputRef}
+                    type="datetime-local"
+                    value={eventForm.date}
+                    onChange={(event) => setEventForm((prev) => ({ ...prev, date: event.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-burgundy/30"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const input = dateTimeInputRef.current;
+                      if (!input) return;
+                      if (typeof input.showPicker === 'function') {
+                        input.showPicker();
+                      } else {
+                        input.focus();
+                        input.click();
+                      }
+                    }}
+                    className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-burgundy hover:text-burgundy-dark cursor-pointer"
+                    aria-label="날짜와 시간 선택"
+                  >
+                    <CalendarClock size={19} />
+                  </button>
+                </div>
               </label>
               <label className="md:col-span-2 flex flex-col gap-2">
                 <span className="text-sm font-semibold text-slate-700">장소</span>

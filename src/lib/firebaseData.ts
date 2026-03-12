@@ -457,13 +457,17 @@ export async function createEvent(payload: {
 }) {
   if (!db || !isFirebaseConfigured) return null;
   try {
-    const eventDate = new Date(payload.date);
-    const isPast = Number.isNaN(eventDate.getTime()) ? 0 : (eventDate < new Date() ? 1 : 0);
+    const normalizedDateInput = payload.date.includes('T') ? payload.date : `${payload.date}T00:00`;
+    const eventDate = new Date(normalizedDateInput);
+    if (Number.isNaN(eventDate.getTime())) {
+      throw new Error('invalid-event-date');
+    }
+    const isPast = eventDate < new Date() ? 1 : 0;
 
     const ref = await addDoc(collection(db, 'events'), {
       title: payload.title,
       description: payload.description,
-      date: Number.isNaN(eventDate.getTime()) ? payload.date : eventDate,
+      date: eventDate,
       location: payload.location,
       is_past: isPast,
       createdAt: serverTimestamp(),
@@ -473,7 +477,7 @@ export async function createEvent(payload: {
       id: ref.id,
       title: payload.title,
       description: payload.description,
-      date: Number.isNaN(eventDate.getTime()) ? new Date().toISOString() : eventDate.toISOString(),
+      date: eventDate.toISOString(),
       location: payload.location,
       is_past: isPast,
     } satisfies EventItem;
