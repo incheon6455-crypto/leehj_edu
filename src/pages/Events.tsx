@@ -46,14 +46,14 @@ export default function Events() {
       let canManageEvents = false;
 
       try {
-        const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+        const sessionToken = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
         if (sessionToken) {
           const profile = await getAdminSessionProfile(sessionToken);
           canManageEvents = String(profile?.role || '').toLowerCase() === 'admin';
         }
 
         if (!canManageEvents) {
-          const cachedProfileRaw = localStorage.getItem(ADMIN_PROFILE_STORAGE_KEY) || '';
+          const cachedProfileRaw = sessionStorage.getItem(ADMIN_PROFILE_STORAGE_KEY) || '';
           if (cachedProfileRaw) {
             const cachedProfile = JSON.parse(cachedProfileRaw) as { role?: string };
             canManageEvents = String(cachedProfile?.role || '').toLowerCase() === 'admin';

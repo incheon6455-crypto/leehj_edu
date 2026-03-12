@@ -38,9 +38,9 @@ export default function Login() {
 
   const applyAdminSession = async (profile: Partial<AdminIdentityProfile>) => {
     const sessionToken = await createAdminSession(profile);
-    localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
-    localStorage.setItem(ADMIN_SESSION_KEY, '1');
-    localStorage.setItem(
+    sessionStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
+    sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+    sessionStorage.setItem(
       ADMIN_PROFILE_STORAGE_KEY,
       JSON.stringify({
         username: String(profile.username || 'admin'),
@@ -91,8 +91,8 @@ export default function Login() {
         await applyAdminSession(resolvedProfile);
       } catch (sessionError) {
         console.error('admin session create failed after login', sessionError);
-        localStorage.setItem(ADMIN_SESSION_KEY, '1');
-        localStorage.setItem(
+        sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+        sessionStorage.setItem(
           ADMIN_PROFILE_STORAGE_KEY,
           JSON.stringify({
             username: String(resolvedProfile.username || normalizedId),
@@ -159,8 +159,8 @@ export default function Login() {
         await applyAdminSession({ username: normalizedId, name: trimmedName, role: 'admin' });
       } catch (sessionError) {
         console.error('admin session create failed after signup', sessionError);
-        localStorage.setItem(ADMIN_SESSION_KEY, '1');
-        localStorage.setItem(
+        sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+        sessionStorage.setItem(
           ADMIN_PROFILE_STORAGE_KEY,
           JSON.stringify({ username: normalizedId, name: trimmedName, role: 'admin' })
         );

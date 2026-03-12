@@ -61,16 +61,16 @@ export function Header() {
   }, [isAccountMenuOpen]);
 
   const handleLogout = async () => {
-    const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+    const sessionToken = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
     await deleteAdminSession(sessionToken);
     try {
       await signOut(auth);
     } catch {
       // ignore sign out errors
     }
-    localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
-    localStorage.removeItem(ADMIN_SESSION_KEY);
-    localStorage.removeItem(ADMIN_PROFILE_STORAGE_KEY);
+    sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    sessionStorage.removeItem(ADMIN_PROFILE_STORAGE_KEY);
     setIsAdminMode(false);
     setAdminProfile(null);
     setIsAccountMenuOpen(false);
@@ -80,8 +80,8 @@ export function Header() {
   useEffect(() => {
     let cancelled = false;
     const syncAdminMode = async () => {
-      const localLoggedIn = localStorage.getItem(ADMIN_SESSION_KEY) === '1';
-      const cachedProfileRaw = localStorage.getItem(ADMIN_PROFILE_STORAGE_KEY);
+      const localLoggedIn = sessionStorage.getItem(ADMIN_SESSION_KEY) === '1';
+      const cachedProfileRaw = sessionStorage.getItem(ADMIN_PROFILE_STORAGE_KEY);
       let cachedProfile: AdminIdentityProfile | null = null;
       if (cachedProfileRaw) {
         try {
@@ -96,7 +96,7 @@ export function Header() {
         setAdminProfile(cachedProfile);
       }
 
-      const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+      const sessionToken = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
       if (!sessionToken) {
         if (!cancelled) {
           if (localLoggedIn && cachedProfile) {
@@ -113,8 +113,8 @@ export function Header() {
       const profile = await getAdminSessionProfile(sessionToken);
       if (cancelled) return;
       if (profile) {
-        localStorage.setItem(ADMIN_SESSION_KEY, '1');
-        localStorage.setItem(ADMIN_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+        sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+        sessionStorage.setItem(ADMIN_PROFILE_STORAGE_KEY, JSON.stringify(profile));
         setIsAdminMode(true);
         setAdminProfile(profile);
         return;
@@ -124,9 +124,9 @@ export function Header() {
         setAdminProfile(cachedProfile);
         return;
       }
-      localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
-      localStorage.removeItem(ADMIN_SESSION_KEY);
-      localStorage.removeItem(ADMIN_PROFILE_STORAGE_KEY);
+      sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      sessionStorage.removeItem(ADMIN_PROFILE_STORAGE_KEY);
       setIsAdminMode(false);
       setAdminProfile(null);
     };

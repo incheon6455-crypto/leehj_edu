@@ -210,20 +210,20 @@ export default function Admin() {
   useEffect(() => {
     let cancelled = false;
     const restoreSession = async () => {
-      const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+      const sessionToken = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
       if (!sessionToken) {
-        if (!cancelled) setIsLoggedIn(localStorage.getItem(ADMIN_SESSION_KEY) === '1');
+        if (!cancelled) setIsLoggedIn(sessionStorage.getItem(ADMIN_SESSION_KEY) === '1');
         return;
       }
       const isActive = await verifyAdminSession(sessionToken);
       if (cancelled) return;
       if (isActive) {
-        localStorage.setItem(ADMIN_SESSION_KEY, '1');
+        sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
         setIsLoggedIn(true);
         return;
       }
-      localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
-      localStorage.removeItem(ADMIN_SESSION_KEY);
+      sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
       setIsLoggedIn(false);
     };
     restoreSession();
@@ -247,9 +247,9 @@ export default function Admin() {
 
     try {
       const sessionToken = await createAdminSession({ username: 'admin', name: '관리자', role: 'admin' });
-      localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
-      localStorage.setItem(ADMIN_SESSION_KEY, '1');
-      localStorage.setItem(ADMIN_PROFILE_STORAGE_KEY, JSON.stringify({ username: 'admin', name: '관리자', role: 'admin' }));
+      sessionStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
+      sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+      sessionStorage.setItem(ADMIN_PROFILE_STORAGE_KEY, JSON.stringify({ username: 'admin', name: '관리자', role: 'admin' }));
       setLoginError('');
       setPassword('');
       setIsLoggedIn(true);
