@@ -285,6 +285,7 @@ function getPostPreviewText(content: string) {
 function sanitizePostDetailContent(rawHtml: string) {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = rawHtml;
+  const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 1024;
 
   // Migrate previously saved "youtube link card" content back to inline embeds.
   const legacyCards = Array.from(wrapper.querySelectorAll('[data-youtube-link-card="true"]'));
@@ -322,6 +323,15 @@ function sanitizePostDetailContent(rawHtml: string) {
     image.style.display = 'block';
     image.style.margin = '12px 0';
     image.style.borderRadius = '8px';
+    if (isMobileViewport) {
+      image.style.setProperty('position', 'static', 'important');
+      image.style.setProperty('top', 'auto', 'important');
+      image.style.setProperty('right', 'auto', 'important');
+      image.style.setProperty('bottom', 'auto', 'important');
+      image.style.setProperty('left', 'auto', 'important');
+      image.style.setProperty('transform', 'none', 'important');
+      image.style.setProperty('z-index', 'auto', 'important');
+    }
   });
 
   return wrapper.innerHTML;

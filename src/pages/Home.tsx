@@ -95,6 +95,7 @@ function buildYouTubeIframe(videoId: string) {
 function buildPostDetailHtml(content: string) {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = content;
+  const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 1024;
 
   const anchors = Array.from(wrapper.querySelectorAll('a[href]'));
   anchors.forEach((anchor) => {
@@ -140,6 +141,23 @@ function buildPostDetailHtml(content: string) {
     });
     if (cursor < source.length) fragment.appendChild(document.createTextNode(source.slice(cursor)));
     node.parentNode?.replaceChild(fragment, node);
+  });
+
+  const images = Array.from(wrapper.querySelectorAll('img'));
+  images.forEach((image) => {
+    image.style.maxWidth = '100%';
+    image.style.height = 'auto';
+    image.style.borderRadius = '8px';
+    image.style.margin = '12px 0';
+    if (isMobileViewport) {
+      image.style.setProperty('position', 'static', 'important');
+      image.style.setProperty('top', 'auto', 'important');
+      image.style.setProperty('right', 'auto', 'important');
+      image.style.setProperty('bottom', 'auto', 'important');
+      image.style.setProperty('left', 'auto', 'important');
+      image.style.setProperty('transform', 'none', 'important');
+      image.style.setProperty('z-index', 'auto', 'important');
+    }
   });
 
   return wrapper.innerHTML;
