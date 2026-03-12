@@ -225,9 +225,9 @@ export default function Events() {
                     type="button"
                     onClick={() => handleMarkEventAsPast(event.id)}
                     disabled={finishingEventId === event.id}
-                    className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 transition-all disabled:opacity-50"
+                    className="inline-flex items-center rounded-xl bg-burgundy px-4 py-2 text-sm font-bold text-white hover:bg-[#5b0016] hover:cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {finishingEventId === event.id ? '처리 중...' : '행사 마침'}
+                    {finishingEventId === event.id ? '처리 중...' : '행사 마감'}
                   </button>
                 </div>
               )}
