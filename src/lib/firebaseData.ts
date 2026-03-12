@@ -214,8 +214,6 @@ function getRecentVisitorDayBuckets(cycleStart: Date, days: number) {
   });
 }
 
-const DAILY_VISITOR_MIN = 2000;
-const DAILY_VISITOR_MAX = 3000;
 const POLICY_REACTION_MIN = 1000;
 const POLICY_REACTION_MAX = 2000;
 const ADMIN_SESSION_COLLECTION = 'admin_sessions';
@@ -232,10 +230,6 @@ function createAdminSessionToken() {
     return crypto.randomUUID();
   }
   return `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-}
-
-function getRandomDailyBase() {
-  return Math.floor(Math.random() * (DAILY_VISITOR_MAX - DAILY_VISITOR_MIN + 1)) + DAILY_VISITOR_MIN;
 }
 
 function getRandomPolicyReactionBase() {
@@ -258,30 +252,26 @@ async function getVisitorCounterTotal(cycleKey: string, initializeIfMissing = fa
     return runTransaction(db, async (tx) => {
       const snap = await tx.get(counterRef);
       if (!snap.exists()) {
-        const base = getRandomDailyBase();
         tx.set(counterRef, {
           cycleKey,
-          base,
           count: 0,
-          total: base,
+          total: 0,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-        return base;
+        return 0;
       }
       const data = snap.data() as Record<string, unknown>;
-      const base = parseNonNegativeNumber(data.base, getRandomDailyBase());
       const count = parseNonNegativeNumber(data.count, 0);
-      return parseNonNegativeNumber(data.total, base + count);
+      return count;
     });
   }
 
   const snap = await getDoc(counterRef);
   if (!snap.exists()) return 0;
   const data = snap.data() as Record<string, unknown>;
-  const base = parseNonNegativeNumber(data.base, 0);
   const count = parseNonNegativeNumber(data.count, 0);
-  return parseNonNegativeNumber(data.total, base + count);
+  return count;
 }
 
 function withPromiseTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
@@ -616,12 +606,10 @@ export async function incrementVisitCount(cycleKey: string) {
     await runTransaction(db, async (tx) => {
       const snap = await tx.get(counterRef);
       if (!snap.exists()) {
-        const base = getRandomDailyBase();
         tx.set(counterRef, {
           cycleKey,
-          base,
           count: 1,
-          total: base + 1,
+          total: 1,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -629,11 +617,10 @@ export async function incrementVisitCount(cycleKey: string) {
       }
 
       const data = snap.data() as Record<string, unknown>;
-      const base = parseNonNegativeNumber(data.base, getRandomDailyBase());
       const count = parseNonNegativeNumber(data.count, 0) + 1;
       tx.update(counterRef, {
         count,
-        total: base + count,
+        total: count,
         updatedAt: serverTimestamp(),
       });
     });
