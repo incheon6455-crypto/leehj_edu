@@ -124,14 +124,14 @@ export default function Events() {
                 </span>
               </div>
               
-              <div className="flex-1 space-y-4 text-center md:text-left">
-                <div className="flex flex-wrap justify-center md:justify-start gap-4 text-slate-500 text-sm">
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-5 gap-y-2 text-sm">
                   <span className="flex items-center gap-1.5"><Calendar size={16} className="text-burgundy" /> {formatDate(event.date)}</span>
                   <span className="flex items-center gap-1.5"><Clock size={16} className="text-burgundy" /> 14:00</span>
                   <span className="flex items-center gap-1.5"><MapPin size={16} className="text-burgundy" /> {event.location}</span>
+                  <span className="text-lg font-bold text-slate-900">{event.title}</span>
+                  <span className="text-slate-600">{event.description}</span>
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900">{event.title}</h3>
-                <p className="text-slate-600">{event.description}</p>
               </div>
             </motion.div>
           ))}
