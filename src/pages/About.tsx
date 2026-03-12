@@ -22,7 +22,7 @@ export default function About() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-16 items-start">
           {/* Profile Sidebar */}
-          <div className="lg:col-span-1 sticky top-0 lg:top-32 z-20 lg:z-auto">
+          <div className="lg:col-span-1 lg:sticky lg:top-32 z-20 lg:z-auto">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
