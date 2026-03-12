@@ -2,13 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Calendar, MapPin, Clock, Plus, X } from 'lucide-react';
 import { formatDate } from '../lib/utils';
-import { createEvent, getEvents, type EventItem } from '../lib/firebaseData';
+import {
+  ADMIN_SESSION_STORAGE_KEY,
+  createEvent,
+  getAdminSessionProfile,
+  getEvents,
+  type EventItem,
+} from '../lib/firebaseData';
+
+const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 
 export default function Events() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [eventForm, setEventForm] = useState({
@@ -26,6 +35,54 @@ export default function Events() {
   useEffect(() => {
     loadEvents();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveAdminAccess = async () => {
+      let canManageEvents = false;
+
+      try {
+        const sessionToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+        if (sessionToken) {
+          const profile = await getAdminSessionProfile(sessionToken);
+          canManageEvents = String(profile?.role || '').toLowerCase() === 'admin';
+        }
+
+        if (!canManageEvents) {
+          const cachedProfileRaw = localStorage.getItem(ADMIN_PROFILE_STORAGE_KEY) || '';
+          if (cachedProfileRaw) {
+            const cachedProfile = JSON.parse(cachedProfileRaw) as { role?: string };
+            canManageEvents = String(cachedProfile?.role || '').toLowerCase() === 'admin';
+          }
+        }
+      } catch {
+        canManageEvents = false;
+      }
+
+      if (!cancelled) {
+        setIsAdminUser(canManageEvents);
+      }
+    };
+
+    resolveAdminAccess();
+
+    const handleStorage = () => {
+      resolveAdminAccess();
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAdminUser && isFormOpen) {
+      setIsFormOpen(false);
+    }
+  }, [isAdminUser, isFormOpen]);
 
   const filteredEvents = events.filter(e => {
     const isPast = new Date(e.date) < new Date();
@@ -67,19 +124,21 @@ export default function Events() {
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold text-slate-900 mb-4">행사 일정</h1>
           <p className="text-slate-600">현장에서 시민 여러분과 함께하겠습니다.</p>
-          <div className="mt-6">
-            <button
-              onClick={() => {
-                setSubmitError('');
-                setSubmitSuccess('');
-                setIsFormOpen((prev) => !prev);
-              }}
-              className="inline-flex items-center gap-2 px-5 py-3 bg-burgundy text-white rounded-xl font-bold hover:opacity-90 transition-all"
-            >
-              <Plus size={18} />
-              행사 등록
-            </button>
-          </div>
+          {isAdminUser && (
+            <div className="mt-6">
+              <button
+                onClick={() => {
+                  setSubmitError('');
+                  setSubmitSuccess('');
+                  setIsFormOpen((prev) => !prev);
+                }}
+                className="inline-flex items-center gap-2 px-5 py-3 bg-burgundy text-white rounded-xl font-bold hover:opacity-90 transition-all"
+              >
+                <Plus size={18} />
+                행사 등록
+              </button>
+            </div>
+          )}
         </div>
 
         {submitSuccess && (
@@ -149,7 +208,7 @@ export default function Events() {
         </div>
       </div>
 
-      {isFormOpen && (
+      {isAdminUser && isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <button
             type="button"
