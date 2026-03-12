@@ -45,7 +45,7 @@ export function Footer() {
               </li>
               <li className="flex items-center gap-3">
                 <Phone size={18} className="text-gold shrink-0" />
-                <span>{CONFIG.contact.phone}</span>
+                <span>010-4619-6455</span>
               </li>
               <li className="flex items-center gap-3">
                 <Mail size={18} className="text-gold shrink-0" />
