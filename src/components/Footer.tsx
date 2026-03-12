@@ -41,7 +41,7 @@ export function Footer() {
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-3">
                 <MapPin size={18} className="text-gold shrink-0" />
-                <span>{CONFIG.contact.address}</span>
+                <span>인천 미추홀구 경인로425번길 6 3층</span>
               </li>
               <li className="flex items-center gap-3">
                 <Phone size={18} className="text-gold shrink-0" />
