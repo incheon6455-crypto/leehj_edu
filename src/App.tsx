@@ -105,6 +105,84 @@ function MobilePullToRefresh() {
   );
 }
 
+function MobileIosSwipeNavigation() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const isMobileViewport = () => window.matchMedia('(max-width: 1023px)').matches;
+    const isIPhone = () => /iPhone/i.test(window.navigator.userAgent || '');
+
+    let tracking = false;
+    let startX = 0;
+    let startY = 0;
+    let edge: 'left' | 'right' | null = null;
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (!isMobileViewport() || !isIPhone()) return;
+      if (event.touches.length !== 1) return;
+
+      const touch = event.touches[0];
+      const x = touch.clientX;
+      const y = touch.clientY;
+      const width = window.innerWidth;
+      const edgeWidth = 24;
+
+      if (x <= edgeWidth) {
+        edge = 'left';
+      } else if (x >= width - edgeWidth) {
+        edge = 'right';
+      } else {
+        edge = null;
+      }
+
+      tracking = edge !== null;
+      startX = x;
+      startY = y;
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (!tracking || !edge) return;
+
+      const touch = event.changedTouches[0];
+      const deltaX = touch.clientX - startX;
+      const deltaY = touch.clientY - startY;
+      const horizontalDistance = Math.abs(deltaX);
+      const verticalDistance = Math.abs(deltaY);
+
+      tracking = false;
+
+      if (horizontalDistance < 70 || verticalDistance > 50) {
+        edge = null;
+        return;
+      }
+
+      if (edge === 'left' && deltaX > 0) {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          navigate('/');
+        }
+      }
+
+      if (edge === 'right' && deltaX < 0) {
+        window.history.forward();
+      }
+
+      edge = null;
+    };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [navigate]);
+
+  return null;
+}
+
 function MobileBackControls() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -144,6 +222,7 @@ export default function App() {
     <Router>
       <ScrollToTop />
       <MobilePullToRefresh />
+      <MobileIosSwipeNavigation />
       <MobileBackControls />
       <div className="min-h-screen flex flex-col font-sans">
         <Header />
