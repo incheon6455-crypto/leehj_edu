@@ -299,53 +299,32 @@ function withPromiseTimeout<T>(promise: Promise<T>, timeoutMs: number, message: 
   });
 }
 
-function formatPhoneWithHyphen(digits: string) {
-  if (digits.length === 11) {
-    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-  }
-  return digits;
+function normalizeNameForIdentity(name: string) {
+  return name.trim().toLowerCase();
 }
 
-function buildPhoneCandidates(phone: string) {
-  const trimmed = phone.trim();
-  const digits = trimmed.replace(/\D/g, '');
-  const candidates = new Set<string>();
-  if (trimmed) candidates.add(trimmed);
-  if (digits) {
-    candidates.add(digits);
-    const hyphenated = formatPhoneWithHyphen(digits);
-    if (hyphenated) candidates.add(hyphenated);
-  }
-  return [...candidates];
+function normalizePhoneForIdentity(phone: string) {
+  return phone.replace(/\D/g, '');
 }
 
-async function hasDuplicateMemberIdentity(payload: { name: string; phone: string }) {
-  if (!db || !isFirebaseConfigured) return false;
+function dedupeMembersByIdentity(items: MemberManagementItem[]) {
+  const seenNames = new Set<string>();
+  const seenPhones = new Set<string>();
 
-  const name = payload.name.trim();
-  const phoneCandidates = buildPhoneCandidates(payload.phone);
+  return items.filter((item) => {
+    const nameKey = normalizeNameForIdentity(item.name || '');
+    const phoneKey = normalizePhoneForIdentity(item.phone || '');
+    const hasNameDuplicate = nameKey ? seenNames.has(nameKey) : false;
+    const hasPhoneDuplicate = phoneKey ? seenPhones.has(phoneKey) : false;
 
-  const checks: Array<Promise<boolean>> = [];
+    if (hasNameDuplicate || hasPhoneDuplicate) {
+      return false;
+    }
 
-  if (name) {
-    checks.push(
-      getDocs(query(collection(db, 'support_messages'), where('name', '==', name), limit(1))).then((snap) => !snap.empty),
-      getDocs(query(collection(db, 'policy_proposals'), where('proposer', '==', name), limit(1))).then((snap) => !snap.empty),
-      getDocs(query(collection(db, 'admin_members'), where('name', '==', name), limit(1))).then((snap) => !snap.empty)
-    );
-  }
-
-  phoneCandidates.forEach((phone) => {
-    checks.push(
-      getDocs(query(collection(db, 'support_messages'), where('phone', '==', phone), limit(1))).then((snap) => !snap.empty),
-      getDocs(query(collection(db, 'policy_proposals'), where('phone', '==', phone), limit(1))).then((snap) => !snap.empty),
-      getDocs(query(collection(db, 'admin_members'), where('phone', '==', phone), limit(1))).then((snap) => !snap.empty)
-    );
+    if (nameKey) seenNames.add(nameKey);
+    if (phoneKey) seenPhones.add(phoneKey);
+    return true;
   });
-
-  if (checks.length === 0) return false;
-  const results = await Promise.all(checks);
-  return results.some(Boolean);
 }
 
 async function submitSupportMessageViaRest(payload: { name: string; phone: string; content: string }) {
@@ -638,11 +617,6 @@ export async function getSupportMessages(): Promise<SupportMessageItem[]> {
 export async function submitSupportMessage(payload: { name: string; phone: string; content: string }) {
   if (!db || !isFirebaseConfigured) return null;
   try {
-    const isDuplicate = await hasDuplicateMemberIdentity({ name: payload.name, phone: payload.phone });
-    if (isDuplicate) {
-      throw new Error('duplicate-member');
-    }
-
     const docRef = await withPromiseTimeout(
       addDoc(collection(db, 'support_messages'), {
         name: payload.name,
@@ -861,7 +835,19 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       };
     });
 
-    const members = [...manualMembers, ...supportMembers, ...proposalMembers]
+    const dedupeCandidates = [...manualMembers, ...supportMembers, ...proposalMembers]
+      .sort((a, b) => {
+        const aPriority = a.sourceCollection === 'admin_members' ? 0 : 1;
+        const bPriority = b.sourceCollection === 'admin_members' ? 0 : 1;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+
+        const aTime = Number.isNaN(Date.parse(a.createdAt)) ? 0 : Date.parse(a.createdAt);
+        const bTime = Number.isNaN(Date.parse(b.createdAt)) ? 0 : Date.parse(b.createdAt);
+        if (aTime !== bTime) return aTime - bTime;
+        return a.id.localeCompare(b.id);
+      });
+
+    const members = dedupeMembersByIdentity(dedupeCandidates)
       .sort((a, b) => {
         const aTime = Number.isNaN(Date.parse(a.createdAt)) ? 0 : Date.parse(a.createdAt);
         const bTime = Number.isNaN(Date.parse(b.createdAt)) ? 0 : Date.parse(b.createdAt);
@@ -887,6 +873,18 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   } catch {
     const [posts, events, support] = await Promise.all([getPosts(), getEvents(), getSupportMessages()]);
     const todayCycleStart = new Date(get6amCycleKey());
+    const fallbackMembers = dedupeMembersByIdentity(
+      support.map((item) => ({
+        id: `support-${item.id}`,
+        name: item.name,
+        phone: item.phone,
+        address: '-',
+        type: '응원메시지' as const,
+        createdAt: item.createdAt,
+        sourceCollection: 'support_messages' as const,
+        sourceId: item.id,
+      }))
+    );
     return {
       totals: {
         posts: posts.length,
@@ -899,16 +897,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         dateLabel: point.dateLabel,
         count: point.count,
       })),
-      members: support.map((item) => ({
-        id: `support-${item.id}`,
-        name: item.name,
-        phone: item.phone,
-        address: '-',
-        type: '응원메시지',
-        createdAt: item.createdAt,
-        sourceCollection: 'support_messages',
-        sourceId: item.id,
-      })),
+      members: fallbackMembers,
       recentPosts: posts,
       upcomingEvents: events.slice(0, 5),
       recentSupportMessages: support.slice(0, 7),
@@ -921,11 +910,6 @@ export async function submitPolicyProposal(payload: { proposer: string; phone: s
   if (!db || !isFirebaseConfigured) return null;
 
   try {
-    const isDuplicate = await hasDuplicateMemberIdentity({ name: payload.proposer, phone: payload.phone });
-    if (isDuplicate) {
-      throw new Error('duplicate-member');
-    }
-
     const docRef = await addDoc(collection(db, 'policy_proposals'), {
       proposer: payload.proposer,
       phone: payload.phone,
