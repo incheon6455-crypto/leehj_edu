@@ -497,16 +497,19 @@ export default function Posts() {
   };
 
   const handleInlineImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files || []);
     event.target.value = '';
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
+    if (files.length === 0) return;
+    const hasNonImage = files.some((file) => !file.type.startsWith('image/'));
+    if (hasNonImage) {
       setPostSubmitError('이미지 파일만 업로드할 수 있습니다.');
       return;
     }
     try {
-      const optimized = await optimizeImageDataUrl(file);
-      insertImageIntoEditor(optimized);
+      for (const file of files) {
+        const optimized = await optimizeImageDataUrl(file);
+        insertImageIntoEditor(optimized);
+      }
       setPostSubmitError('');
     } catch (error) {
       const message = error instanceof Error ? error.message : '이미지 처리에 실패했습니다.';
@@ -802,6 +805,7 @@ export default function Posts() {
                     ref={inlineImageInputRef}
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={handleInlineImageChange}
                     className="hidden"
                   />
