@@ -99,7 +99,7 @@ export default function Contact() {
                 <h2 className="text-xl font-bold text-slate-900">후원/참여 안내</h2>
               </div>
               <p className="text-slate-600 text-sm leading-relaxed mb-4">
-                정기 후원, 일시 후원, 자원봉사 참여를 신청하시면 담당자가 확인 후 개별 안내드립니다.
+                정기·일시 후원 및 자원봉사 신청 시 담당자가 개별 안내드립니다.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="rounded-xl bg-white p-4 border border-slate-100">
