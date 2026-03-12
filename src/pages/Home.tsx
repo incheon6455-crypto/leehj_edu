@@ -169,7 +169,7 @@ export default function Home() {
           if (bTime !== aTime) return bTime - aTime;
           return b.id.localeCompare(a.id);
         });
-        setLatestPosts(sortedPosts.slice(0, 12));
+        setLatestPosts(sortedPosts.slice(0, 9));
       });
   }, []);
 
@@ -407,7 +407,7 @@ export default function Home() {
                   전체보기 <ArrowRight size={16} />
                 </Link>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {latestPosts.map((post, i) => (
                   <div
                     key={post.id}

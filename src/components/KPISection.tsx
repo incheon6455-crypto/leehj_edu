@@ -4,8 +4,6 @@ import { Users, FileText, Calendar } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getStats, incrementVisitCount } from '../lib/firebaseData';
 
-const LAST_VISIT_CYCLE_KEY = 'last_visit_cycle_6am';
-
 function get6amCycleKey(now: Date = new Date()) {
   const cycleStart = new Date(now);
   cycleStart.setHours(6, 0, 0, 0);
@@ -34,13 +32,7 @@ export function KPISection() {
 
     const syncStats = async () => {
       const cycleKey = get6amCycleKey();
-      const lastVisitCycle = localStorage.getItem(LAST_VISIT_CYCLE_KEY);
-      if (lastVisitCycle !== cycleKey) {
-        const incremented = await incrementVisitCount(cycleKey);
-        if (incremented) {
-          localStorage.setItem(LAST_VISIT_CYCLE_KEY, cycleKey);
-        }
-      }
+      await incrementVisitCount(cycleKey);
 
       const data = await getStats();
       if (cancelled) return;
