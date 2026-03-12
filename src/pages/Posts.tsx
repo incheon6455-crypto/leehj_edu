@@ -311,6 +311,19 @@ function sanitizePostDetailContent(rawHtml: string) {
     }
   });
 
+  // Normalize editor-sized images to fit the detail layout width.
+  const images = Array.from(wrapper.querySelectorAll('img'));
+  images.forEach((image) => {
+    image.style.width = '100%';
+    image.style.maxWidth = '100%';
+    image.style.height = 'auto';
+    image.style.maxHeight = 'none';
+    image.style.objectFit = 'cover';
+    image.style.display = 'block';
+    image.style.margin = '12px 0';
+    image.style.borderRadius = '8px';
+  });
+
   return wrapper.innerHTML;
 }
 
@@ -542,7 +555,7 @@ export default function Posts() {
 
   const visiblePosts = posts.slice(0, visibleCount);
   const selectedPostDetailHtml = selectedPost ? sanitizePostDetailContent(selectedPost.content) : '';
-  const selectedPostHasEmbeddedMedia = /<(iframe|video)\b/i.test(selectedPostDetailHtml);
+  const selectedPostHasEmbeddedMedia = /<(img|iframe|video)\b/i.test(selectedPostDetailHtml);
   const shouldHideDetailHeroImage =
     selectedPostHasEmbeddedMedia || (selectedPost ? isGeneratedNewsThumbnail(selectedPost.image_url || '') : false);
 
