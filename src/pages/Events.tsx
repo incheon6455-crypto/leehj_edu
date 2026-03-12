@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, MapPin, Clock, ExternalLink, Plus } from 'lucide-react';
+import { Calendar, MapPin, Clock, Plus } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 import { createEvent, getEvents, type EventItem } from '../lib/firebaseData';
 
@@ -179,9 +179,9 @@ export default function Events() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-8 items-center hover:shadow-md transition-all"
+              className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-5 items-center hover:shadow-md transition-all"
             >
-              <div className="w-full md:w-32 h-32 bg-slate-50 rounded-2xl flex flex-col items-center justify-center border border-slate-100 shrink-0">
+              <div className="w-full md:w-28 h-24 md:h-28 bg-slate-50 rounded-2xl flex flex-col items-center justify-center border border-slate-100 shrink-0">
                 <span className="text-burgundy font-bold text-2xl">
                   {new Date(event.date).getDate()}
                 </span>
@@ -198,12 +198,6 @@ export default function Events() {
                 </div>
                 <h3 className="text-2xl font-bold text-slate-900">{event.title}</h3>
                 <p className="text-slate-600">{event.description}</p>
-              </div>
-              
-              <div className="shrink-0 w-full md:w-auto">
-                <button className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
-                  참가 신청 <ExternalLink size={18} />
-                </button>
               </div>
             </motion.div>
           ))}
