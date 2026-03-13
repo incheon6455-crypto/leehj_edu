@@ -84,6 +84,7 @@ export interface AdminDashboardData {
   totals: {
     posts: number;
     events: number;
+    policyProposals: number;
     supportMessages: number;
     visitorsToday: number;
   };
@@ -825,6 +826,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       totals: {
         posts: recentPosts.length,
         events: upcomingEvents.length,
+        policyProposals: 0,
         supportMessages: 0,
         visitorsToday: 0,
       },
@@ -855,6 +857,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     const [
       postsCountSnap,
       eventsCountSnap,
+      policyProposalsCountSnap,
       supportCountSnap,
       visitorsCountSnap,
       visitorsTrendSnap,
@@ -869,6 +872,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     ] = await Promise.all([
       getCountFromServer(postsRef),
       getCountFromServer(eventsRef),
+      getCountFromServer(proposalsRef),
       getCountFromServer(supportRef),
       getCountFromServer(visitorsQuery),
       getDocs(visitorsQuery),
@@ -1018,6 +1022,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       totals: {
         posts: postsCountSnap.data().count,
         events: eventsCountSnap.data().count,
+        policyProposals: policyProposalsCountSnap.data().count,
         supportMessages: supportCountSnap.data().count,
         visitorsToday: Number(visitorsTodayTotal) || visitorsCountSnap.data().count,
       },
@@ -1048,6 +1053,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       totals: {
         posts: posts.length,
         events: events.length,
+        policyProposals: 0,
         supportMessages: support.length,
         visitorsToday: 0,
       },

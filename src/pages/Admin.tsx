@@ -75,6 +75,7 @@ function getEmptyDashboard(): AdminDashboardData {
     totals: {
       posts: 0,
       events: 0,
+      policyProposals: 0,
       supportMessages: 0,
       visitorsToday: 0,
     },
@@ -267,6 +268,7 @@ export default function Admin() {
       { label: '오늘 방문 로그(00시 기준)', value: dashboard.totals.visitorsToday, icon: Users, color: 'text-burgundy' },
       { label: '전체 게시물', value: dashboard.totals.posts, icon: FileText, color: 'text-blue-600' },
       { label: '전체 행사', value: dashboard.totals.events, icon: CalendarDays, color: 'text-emerald-600' },
+      { label: '정책제안', value: dashboard.totals.policyProposals, icon: Pencil, color: 'text-violet-600' },
       { label: '응원 메시지', value: dashboard.totals.supportMessages, icon: MessageSquareText, color: 'text-amber-600' },
     ],
     [dashboard.totals]
@@ -653,20 +655,20 @@ export default function Admin() {
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         ) : null}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
           {metrics.map((metric, index) =>
             index === 0 ? (
               <button
                 key={metric.label}
                 type="button"
                 onClick={() => setIsVisitorLogModalOpen(true)}
-                className="text-left bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:border-burgundy/30 hover:shadow-md transition"
+                className="text-left bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:border-burgundy/30 hover:shadow-md transition"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-slate-500">{metric.label}</p>
-                  <metric.icon className={metric.color} size={18} />
+                  <p className="text-[13px] text-slate-500">{metric.label}</p>
+                  <metric.icon className={metric.color} size={16} />
                 </div>
-                <p className="text-3xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
                 <p className="mt-2 text-xs text-burgundy">클릭해서 일간 방문 로그 보기</p>
               </button>
             ) : index === 1 ? (
@@ -674,13 +676,13 @@ export default function Admin() {
                 key={metric.label}
                 type="button"
                 onClick={() => setIsPostsModalOpen(true)}
-                className="text-left bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:border-blue-200 hover:shadow-md transition"
+                className="text-left bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:border-blue-200 hover:shadow-md transition"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-slate-500">{metric.label}</p>
-                  <metric.icon className={metric.color} size={18} />
+                  <p className="text-[13px] text-slate-500">{metric.label}</p>
+                  <metric.icon className={metric.color} size={16} />
                 </div>
-                <p className="text-3xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
                 <p className="mt-2 text-xs text-blue-600">클릭해서 게시물 보기</p>
               </button>
             ) : index === 2 ? (
@@ -688,27 +690,38 @@ export default function Admin() {
                 key={metric.label}
                 type="button"
                 onClick={() => setIsEventsModalOpen(true)}
-                className="text-left bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-md transition"
+                className="text-left bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-md transition"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-slate-500">{metric.label}</p>
-                  <metric.icon className={metric.color} size={18} />
+                  <p className="text-[13px] text-slate-500">{metric.label}</p>
+                  <metric.icon className={metric.color} size={16} />
                 </div>
-                <p className="text-3xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
                 <p className="mt-2 text-xs text-emerald-600">클릭해서 행사 보기</p>
               </button>
             ) : index === 3 ? (
+              <div
+                key={metric.label}
+                className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[13px] text-slate-500">{metric.label}</p>
+                  <metric.icon className={metric.color} size={16} />
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
+              </div>
+            ) : index === 4 ? (
               <button
                 key={metric.label}
                 type="button"
                 onClick={() => setIsSupportMessagesModalOpen(true)}
-                className="text-left bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:border-amber-200 hover:shadow-md transition"
+                className="text-left bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:border-amber-200 hover:shadow-md transition"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-slate-500">{metric.label}</p>
-                  <metric.icon className={metric.color} size={18} />
+                  <p className="text-[13px] text-slate-500">{metric.label}</p>
+                  <metric.icon className={metric.color} size={16} />
                 </div>
-                <p className="text-3xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
                 <p className="mt-2 text-xs text-amber-600">클릭해서 응원 메시지 보기</p>
               </button>
             ) : (
