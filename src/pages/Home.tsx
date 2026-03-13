@@ -374,7 +374,7 @@ export default function Home() {
         {/* KPI Section at the bottom of Hero */}
         <div className="order-2 w-full z-20 lg:absolute lg:bottom-0 lg:left-0 lg:right-0">
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="absolute bottom-[158px] left-1/2 -translate-x-1/2 flex flex-row items-center gap-2 z-30 md:bottom-auto md:-left-4 md:top-1/2 md:-translate-x-[40px] md:-translate-y-1/2 lg:-left-8">
+            <div className="absolute bottom-[158px] left-1/2 -translate-x-1/2 max-md:translate-y-[25px] flex flex-row items-center gap-2 z-30 md:bottom-auto md:-left-4 md:top-1/2 md:-translate-x-[40px] md:-translate-y-1/2 lg:-left-8">
               {heroImages.map((image, index) => (
                 <button
                   type="button"
