@@ -20,6 +20,7 @@ import {
   createAdminMember,
   createSmsRequest,
   deleteAdminSession,
+  deleteContact,
   deleteEvent,
   deletePolicy,
   deletePost,
@@ -203,6 +204,7 @@ export default function Admin() {
   const [isEventsModalOpen, setIsEventsModalOpen] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
+  const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
   const [isPolicyProposalsModalOpen, setIsPolicyProposalsModalOpen] = useState(false);
   const [isSupportMessagesModalOpen, setIsSupportMessagesModalOpen] = useState(false);
   const [isContactBoardModalOpen, setIsContactBoardModalOpen] = useState(false);
@@ -720,6 +722,23 @@ export default function Admin() {
       setError('정책 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setDeletingPolicyId(null);
+    }
+  };
+
+  const handleDeleteContact = async (contactId: string) => {
+    setDeletingContactId(contactId);
+    setError('');
+    try {
+      await deleteContact(contactId);
+      if (selectedContactInquiry?.id === contactId) {
+        setSelectedContactInquiry(null);
+        setIsContactInquiryModalOpen(false);
+      }
+      await loadDashboard();
+    } catch {
+      setError('문의 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setDeletingContactId(null);
     }
   };
 
@@ -1249,19 +1268,34 @@ export default function Admin() {
                 <p className="text-sm text-slate-400">접수된 문의가 없습니다.</p>
               ) : (
                 dashboard.recentContacts.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleOpenContactInquiry(item)}
-                    className="w-full text-left rounded-xl border border-slate-100 p-4 hover:bg-slate-50 transition"
-                  >
+                  <div key={item.id} className="rounded-xl border border-slate-100 p-4 bg-white">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-bold text-slate-900">{item.name || '-'}</p>
-                      <p className="text-xs text-slate-500">{formatDate(item.createdAt)}</p>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{item.name || '-'}</p>
+                        <p className="text-xs text-slate-500 mt-1">{item.phone || '-'}</p>
+                      </div>
+                      <p className="text-xs text-slate-500 shrink-0">{formatDate(item.createdAt)}</p>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">{item.phone || '-'}</p>
                     <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap break-words">{item.message || '-'}</p>
-                  </button>
+                    <div className="mt-3 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenContactInquiry(item)}
+                        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        상세보기
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteContact(item.id)}
+                        disabled={deletingContactId === item.id}
+                        className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                      >
+                        <Trash2 size={12} />
+                        {deletingContactId === item.id ? '삭제 중' : '삭제'}
+                      </button>
+                    </div>
+                  </div>
                 ))
               )}
             </div>

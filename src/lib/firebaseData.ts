@@ -932,6 +932,15 @@ export async function submitContact(payload: { name: string; phone: string; mess
   }
 }
 
+export async function deleteContact(contactId: string) {
+  if (!db || !isFirebaseConfigured) return;
+  try {
+    await deleteDoc(doc(db, 'contacts', contactId));
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function getSupportMessages(): Promise<SupportMessageItem[]> {
   if (!db || !isFirebaseConfigured) return [];
   try {
