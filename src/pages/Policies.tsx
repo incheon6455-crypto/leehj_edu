@@ -47,6 +47,13 @@ function maskProposerPhone(phone: string) {
   return `***-****-${lastTwo}`;
 }
 
+function formatPhoneInput(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
 export default function Policies() {
   const [searchQuery, setSearchQuery] = useState('');
   const [policies, setPolicies] = useState<PolicyCatalogItem[]>([]);
@@ -388,7 +395,9 @@ export default function Policies() {
                       type="tel"
                       required
                       value={proposalForm.phone}
-                      onChange={(e) => setProposalForm((prev) => ({ ...prev, phone: e.target.value }))}
+                      onChange={(e) => setProposalForm((prev) => ({ ...prev, phone: formatPhoneInput(e.target.value) }))}
+                      inputMode="numeric"
+                      maxLength={13}
                       className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 focus:outline-none focus:ring-2 focus:ring-burgundy"
                       placeholder="전화번호를 입력하세요"
                     />

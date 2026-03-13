@@ -3,6 +3,13 @@ import { motion } from 'motion/react';
 import { Send, Phone, Mail, MapPin, CheckCircle2, HeartHandshake } from 'lucide-react';
 import { submitContact } from '../lib/firebaseData';
 
+function formatPhoneInput(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
 export default function Contact() {
   const [inquiryData, setInquiryData] = useState({ name: '', phone: '', message: '' });
   const [isRobot, setIsRobot] = useState(false);
@@ -139,7 +146,9 @@ export default function Contact() {
                   placeholder="연락 가능한 번호를 입력해 주세요"
                   className="w-full px-4 py-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-burgundy transition-all"
                   value={inquiryData.phone}
-                  onChange={(e) => setInquiryData({ ...inquiryData, phone: e.target.value })}
+                  onChange={(e) => setInquiryData({ ...inquiryData, phone: formatPhoneInput(e.target.value) })}
+                  inputMode="numeric"
+                  maxLength={13}
                 />
               </div>
               <div className="space-y-2">
