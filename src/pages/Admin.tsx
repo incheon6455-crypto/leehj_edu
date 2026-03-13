@@ -1413,100 +1413,102 @@ export default function Admin() {
           }}
         >
           <div
-            className="w-[400px] h-[767px] rounded-3xl bg-[#f2f3f5] border border-slate-300 shadow-2xl overflow-hidden"
+            className="w-[400px] h-[860px] max-h-[92vh] rounded-3xl bg-[#f2f3f5] border border-slate-300 shadow-2xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 pt-3 pb-2 flex justify-center">
               <div className="h-3 w-28 rounded-full bg-slate-500/70" />
             </div>
 
-            <div className="px-4 pb-4 space-y-3">
-              <div className="rounded-3xl bg-[#d9dce0] border border-slate-300 p-4">
-                <div className="mb-2 inline-flex rounded-xl border-2 border-[#2e4fd7] bg-white overflow-hidden">
-                  <div className="bg-[#254ad0] text-white text-xs font-bold flex items-center justify-center px-5 py-1.5">
-                    발신
+            <div className="px-4 pb-4 flex-1 min-h-0 flex flex-col">
+              <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
+                <div className="rounded-3xl bg-[#d9dce0] border border-slate-300 p-4">
+                  <div className="mb-2 inline-flex rounded-xl border-2 border-[#2e4fd7] bg-white overflow-hidden">
+                    <div className="bg-[#254ad0] text-white text-xs font-bold flex items-center justify-center px-5 py-1.5">
+                      발신
+                    </div>
+                  </div>
+
+                  <textarea
+                    id="sms-message"
+                    rows={5}
+                    value={smsMessage}
+                    onChange={(e) => setSmsMessage(trimToUtf8Bytes(e.target.value, SMS_MAX_MESSAGE_BYTES))}
+                    placeholder="내용입력"
+                    className="w-full rounded-2xl border border-slate-300 bg-[#f7f7f8] px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 resize-none min-h-[270px]"
+                  />
+
+                  <div className="mt-2 flex items-center justify-between">
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={smsUseLms}
+                        onChange={(e) => setSmsUseLms(e.target.checked)}
+                        className="h-4 w-4 accent-[#2e4fd7]"
+                      />
+                      LMS
+                    </label>
+                    <p className="text-xs font-semibold text-slate-800">{smsMessageBytes}/{SMS_MAX_MESSAGE_BYTES}Byte</p>
                   </div>
                 </div>
 
-                <textarea
-                  id="sms-message"
-                  rows={5}
-                  value={smsMessage}
-                  onChange={(e) => setSmsMessage(trimToUtf8Bytes(e.target.value, SMS_MAX_MESSAGE_BYTES))}
-                  placeholder="내용입력"
-                  className="w-full rounded-2xl border border-slate-300 bg-[#f7f7f8] px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 resize-none min-h-[270px]"
-                />
-
-                <div className="mt-2 flex items-center justify-between">
-                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800">
-                    <input
-                      type="checkbox"
-                      checked={smsUseLms}
-                      onChange={(e) => setSmsUseLms(e.target.checked)}
-                      className="h-4 w-4 accent-[#2e4fd7]"
-                    />
-                    LMS
-                  </label>
-                  <p className="text-xs font-semibold text-slate-800">{smsMessageBytes}/{SMS_MAX_MESSAGE_BYTES}Byte</p>
+                <div className="rounded-2xl bg-white border border-slate-300 p-2">
+                  <div className="border border-slate-300 rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-[42px_82px_minmax(0,1fr)_52px] bg-slate-100 text-xs font-bold text-slate-800 border-b border-slate-300">
+                      <div className="px-2 py-2">No.</div>
+                      <div className="px-2 py-2 border-l border-slate-300">수신자</div>
+                      <div className="px-2 py-2 border-l border-slate-300">수신번호</div>
+                      <div className="px-1 py-2 border-l border-slate-300 text-center">상태</div>
+                    </div>
+                    <div className="max-h-[430px] overflow-y-auto">
+                      {selectedSmsTargets.map((target, rowIndex) => {
+                        const no = rowIndex + 1;
+                        return (
+                          <div key={`sms-row-${target.id}`} className="grid grid-cols-[42px_82px_minmax(0,1fr)_52px] border-b border-slate-200 last:border-b-0 bg-white">
+                            <div className="px-2 py-2 text-sm font-semibold text-slate-900">{no}</div>
+                            <div className="px-2 py-1 border-l border-slate-200">
+                              <input
+                                value={target.name || ''}
+                                readOnly
+                                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] text-slate-700"
+                              />
+                            </div>
+                            <div className="px-2 py-1 border-l border-slate-200">
+                              <input
+                                value={target.displayPhone || ''}
+                                readOnly
+                                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] text-slate-700"
+                              />
+                            </div>
+                            <div className="px-1 py-1 border-l border-slate-200 flex items-center justify-center">
+                              <span
+                                className={`text-[11px] font-bold ${
+                                  smsRecipientStatuses[target.id] === '요청 완료'
+                                    ? 'text-emerald-600'
+                                    : smsRecipientStatuses[target.id] === '요청 실패'
+                                      ? 'text-red-600'
+                                      : 'text-slate-400'
+                                }`}
+                              >
+                                {smsRecipientStatuses[target.id] ?? '대기'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
+
+                {smsError ? (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{smsError}</div>
+                ) : null}
+                {smsSuccess ? (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{smsSuccess}</div>
+                ) : null}
               </div>
 
-              <div className="rounded-2xl bg-white border border-slate-300 p-2">
-                <div className="border border-slate-300 rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-[42px_82px_minmax(0,1fr)_52px] bg-slate-100 text-xs font-bold text-slate-800 border-b border-slate-300">
-                    <div className="px-2 py-2">No.</div>
-                    <div className="px-2 py-2 border-l border-slate-300">수신자</div>
-                    <div className="px-2 py-2 border-l border-slate-300">수신번호</div>
-                    <div className="px-1 py-2 border-l border-slate-300 text-center">상태</div>
-                  </div>
-                  <div className="max-h-[260px] overflow-y-auto">
-                    {selectedSmsTargets.map((target, rowIndex) => {
-                      const no = rowIndex + 1;
-                      return (
-                        <div key={`sms-row-${target.id}`} className="grid grid-cols-[42px_82px_minmax(0,1fr)_52px] border-b border-slate-200 last:border-b-0 bg-white">
-                          <div className="px-2 py-2 text-sm font-semibold text-slate-900">{no}</div>
-                          <div className="px-2 py-1 border-l border-slate-200">
-                            <input
-                              value={target.name || ''}
-                              readOnly
-                              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] text-slate-700"
-                            />
-                          </div>
-                          <div className="px-2 py-1 border-l border-slate-200">
-                            <input
-                              value={target.displayPhone || ''}
-                              readOnly
-                              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] text-slate-700"
-                            />
-                          </div>
-                          <div className="px-1 py-1 border-l border-slate-200 flex items-center justify-center">
-                            <span
-                              className={`text-[11px] font-bold ${
-                                smsRecipientStatuses[target.id] === '요청 완료'
-                                  ? 'text-emerald-600'
-                                  : smsRecipientStatuses[target.id] === '요청 실패'
-                                    ? 'text-red-600'
-                                    : 'text-slate-400'
-                              }`}
-                            >
-                              {smsRecipientStatuses[target.id] ?? '대기'}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {smsError ? (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{smsError}</div>
-              ) : null}
-              {smsSuccess ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{smsSuccess}</div>
-              ) : null}
-
-              <div className="flex items-center justify-between gap-2 pt-1">
+              <div className="flex items-center justify-between gap-2 pt-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsSmsModalOpen(false)}
