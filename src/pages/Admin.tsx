@@ -1461,16 +1461,16 @@ export default function Admin() {
 
               <div className="rounded-2xl bg-white border border-slate-300 p-2">
                 <div className="border border-slate-300 rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-[50px_1fr_1fr_30px] bg-slate-100 text-xs font-bold text-slate-800 border-b border-slate-300">
+                  <div className="grid grid-cols-[50px_1fr_1fr_86px] bg-slate-100 text-xs font-bold text-slate-800 border-b border-slate-300">
                     <div className="px-2 py-2">No.</div>
                     <div className="px-2 py-2 border-l border-slate-300">수신자</div>
                     <div className="px-2 py-2 border-l border-slate-300">수신번호</div>
-                    <div className="px-2 py-2 border-l border-slate-300" />
+                    <div className="px-2 py-2 border-l border-slate-300 text-center">전송상태</div>
                   </div>
                   {smsVisibleRows.map((target, rowIndex) => {
                     const no = (smsRecipientPage - 1) * 10 + rowIndex + 1;
                     return (
-                      <div key={`sms-row-${no}`} className="grid grid-cols-[50px_1fr_1fr_30px] border-b border-slate-200 last:border-b-0 bg-white">
+                      <div key={`sms-row-${no}`} className="grid grid-cols-[50px_1fr_1fr_86px] border-b border-slate-200 last:border-b-0 bg-white">
                         <div className="px-2 py-2 text-sm font-semibold text-slate-900">{no}</div>
                         <div className="px-2 py-1 border-l border-slate-200">
                           <input
@@ -1499,10 +1499,8 @@ export default function Admin() {
                             }`}
                           >
                             {target
-                              ? smsRecipientStatuses[target.id] === '대기'
-                                ? '×'
-                                : smsRecipientStatuses[target.id]
-                              : '×'}
+                              ? smsRecipientStatuses[target.id] ?? '대기'
+                              : '-'}
                           </span>
                         </div>
                       </div>
