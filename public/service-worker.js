@@ -1,5 +1,4 @@
 /* eslint-disable no-restricted-globals */
-
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
@@ -9,7 +8,6 @@ self.addEventListener('activate', (event) => {
     (async () => {
       const cacheNames = await caches.keys();
       await Promise.all(cacheNames.map((name) => caches.delete(name)));
-
       await self.registration.unregister();
 
       const clients = await self.clients.matchAll({
