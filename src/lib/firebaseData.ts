@@ -605,6 +605,15 @@ export async function deletePost(postId: string) {
   }
 }
 
+export async function deletePolicy(policyId: string) {
+  if (!db || !isFirebaseConfigured) return;
+  try {
+    await deleteDoc(doc(db, 'policies', policyId));
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function getEvents(): Promise<EventItem[]> {
   if (!db || !isFirebaseConfigured) return FALLBACK_EVENTS;
   try {

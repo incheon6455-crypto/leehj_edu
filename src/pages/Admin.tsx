@@ -20,6 +20,7 @@ import {
   createAdminMember,
   deleteAdminSession,
   deleteEvent,
+  deletePolicy,
   deletePost,
   deleteHeroBackgroundImage,
   deleteMemberAndRelatedContent,
@@ -144,6 +145,7 @@ export default function Admin() {
   const [isPostsModalOpen, setIsPostsModalOpen] = useState(false);
   const [isEventsModalOpen, setIsEventsModalOpen] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
   const [isPolicyProposalsModalOpen, setIsPolicyProposalsModalOpen] = useState(false);
   const [isSupportMessagesModalOpen, setIsSupportMessagesModalOpen] = useState(false);
   const [isVisitorLogModalOpen, setIsVisitorLogModalOpen] = useState(false);
@@ -597,6 +599,19 @@ export default function Admin() {
       setError('행사 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setDeletingEventId(null);
+    }
+  };
+
+  const handleDeletePolicy = async (policyId: string) => {
+    setDeletingPolicyId(policyId);
+    setError('');
+    try {
+      await deletePolicy(policyId);
+      await loadDashboard();
+    } catch {
+      setError('정책 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setDeletingPolicyId(null);
     }
   };
 
@@ -1235,7 +1250,18 @@ export default function Admin() {
                   <div key={item.id} className="rounded-xl border border-slate-100 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-bold text-slate-900">{item.title || '-'}</p>
-                      <p className="text-xs text-slate-500">{item.category || '-'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-slate-500">{item.category || '-'}</p>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePolicy(item.id)}
+                          disabled={deletingPolicyId === item.id}
+                          className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                        >
+                          <Trash2 size={12} />
+                          {deletingPolicyId === item.id ? '삭제 중' : '삭제'}
+                        </button>
+                      </div>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">{item.desc || '-'}</p>
                     <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{item.content || '-'}</p>
