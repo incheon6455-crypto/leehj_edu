@@ -109,22 +109,22 @@ export function KPISection() {
       viewport={{ once: true }}
       className="bg-white/90 backdrop-blur-md p-5 md:p-6 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05),0_8px_10px_-6px_rgba(0,0,0,0.05)] border border-burgundy/20"
     >
-      <div className="grid grid-cols-2 md:grid-cols-4 md:divide-x-0 divide-y-0">
+      <div className="grid grid-cols-4 md:grid-cols-4 md:divide-x-0 divide-y-0">
         {cards.map((card, i) => (
           <div
             key={card.label}
             className={cn(
-              "flex items-center justify-center gap-4 py-4 md:py-1 md:px-6 max-md:flex-col max-md:gap-1 max-md:py-2",
+              "flex items-center justify-center gap-4 py-4 md:py-1 md:px-6 max-md:flex-col max-md:gap-0.5 max-md:py-1 max-md:px-1",
               i === 0 && "pt-0 md:pl-0",
               i === cards.length - 1 && "pb-0 md:pr-0"
             )}
           >
-            <div className={cn("p-3 bg-slate-500/5 max-md:p-2", card.color)}>
-              <card.icon size={22} />
+            <div className={cn("p-3 bg-slate-500/5 max-md:p-1.5", card.color)}>
+              <card.icon size={16} className="md:w-[22px] md:h-[22px]" />
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-500 mb-0.5 max-md:text-[11px] max-md:text-center">{card.label}</p>
-              <p className="text-2xl font-bold text-slate-900 max-md:text-lg max-md:text-center">
+              <p className="text-xs font-medium text-slate-500 mb-0.5 max-md:text-[9px] max-md:leading-tight max-md:text-center">{card.label}</p>
+              <p className="text-2xl font-bold text-slate-900 max-md:text-base max-md:leading-none max-md:text-center">
                 <CountUp value={card.value} />
               </p>
             </div>
