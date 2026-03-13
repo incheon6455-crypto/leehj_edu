@@ -1421,7 +1421,7 @@ export default function Admin() {
           }}
         >
           <div
-            className="w-[655px] h-[767px] rounded-3xl bg-[#f2f3f5] border border-slate-300 shadow-2xl overflow-hidden"
+            className="w-[400px] h-[767px] rounded-3xl bg-[#f2f3f5] border border-slate-300 shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 pt-3 pb-2 flex justify-center">
