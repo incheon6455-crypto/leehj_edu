@@ -275,30 +275,17 @@ async function getVisitorLifetimeTotal() {
   if (!db || !isFirebaseConfigured) return 0;
 
   const lifetimeRef = doc(db, 'visitor_counters', '__lifetime__');
-  const [lifetimeSnap, visitorsCountSnap, counterDocsSnap] = await Promise.all([
+  const [lifetimeSnap, visitorsCountSnap] = await Promise.all([
     getDoc(lifetimeRef),
     getCountFromServer(collection(db, 'visitors')),
-    getDocs(collection(db, 'visitor_counters')),
   ]);
 
   const visitorsTotalFromLogs = visitorsCountSnap.data().count;
-  let visitorsTotalFromCounters = 0;
-
-  counterDocsSnap.docs.forEach((docItem) => {
-    if (docItem.id === '__lifetime__') return;
-    const data = docItem.data() as Record<string, unknown>;
-    visitorsTotalFromCounters = Math.max(
-      visitorsTotalFromCounters,
-      parseNonNegativeNumber(data.total, 0)
-    );
-  });
-
-  const recoveredTotal = Math.max(visitorsTotalFromLogs, visitorsTotalFromCounters);
 
   if (lifetimeSnap.exists()) {
     const data = lifetimeSnap.data() as Record<string, unknown>;
     const lifetimeTotal = parseNonNegativeNumber(data.total, 0);
-    const normalizedLifetimeTotal = Math.max(lifetimeTotal, recoveredTotal);
+    const normalizedLifetimeTotal = Math.max(lifetimeTotal, visitorsTotalFromLogs);
 
     if (normalizedLifetimeTotal !== lifetimeTotal) {
       await setDoc(
@@ -318,14 +305,14 @@ async function getVisitorLifetimeTotal() {
   await setDoc(
     lifetimeRef,
     {
-      total: recoveredTotal,
+      total: visitorsTotalFromLogs,
       updatedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
     },
     { merge: true }
   );
 
-  return recoveredTotal;
+  return visitorsTotalFromLogs;
 }
 
 function withPromiseTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
