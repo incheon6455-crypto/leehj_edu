@@ -275,26 +275,57 @@ async function getVisitorLifetimeTotal() {
   if (!db || !isFirebaseConfigured) return 0;
 
   const lifetimeRef = doc(db, 'visitor_counters', '__lifetime__');
-  const lifetimeSnap = await getDoc(lifetimeRef);
+  const [lifetimeSnap, visitorsCountSnap, counterDocsSnap] = await Promise.all([
+    getDoc(lifetimeRef),
+    getCountFromServer(collection(db, 'visitors')),
+    getDocs(collection(db, 'visitor_counters')),
+  ]);
+
+  const visitorsTotalFromLogs = visitorsCountSnap.data().count;
+  let visitorsTotalFromCounters = 0;
+
+  counterDocsSnap.docs.forEach((docItem) => {
+    if (docItem.id === '__lifetime__') return;
+    const data = docItem.data() as Record<string, unknown>;
+    visitorsTotalFromCounters = Math.max(
+      visitorsTotalFromCounters,
+      parseNonNegativeNumber(data.total, 0)
+    );
+  });
+
+  const recoveredTotal = Math.max(visitorsTotalFromLogs, visitorsTotalFromCounters);
+
   if (lifetimeSnap.exists()) {
     const data = lifetimeSnap.data() as Record<string, unknown>;
-    return parseNonNegativeNumber(data.total, 0);
-  }
+    const lifetimeTotal = parseNonNegativeNumber(data.total, 0);
+    const normalizedLifetimeTotal = Math.max(lifetimeTotal, recoveredTotal);
 
-  const visitorsCountSnap = await getCountFromServer(collection(db, 'visitors'));
-  const total = visitorsCountSnap.data().count;
+    if (normalizedLifetimeTotal !== lifetimeTotal) {
+      await setDoc(
+        lifetimeRef,
+        {
+          total: normalizedLifetimeTotal,
+          updatedAt: serverTimestamp(),
+          createdAt: data.createdAt ?? serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    return normalizedLifetimeTotal;
+  }
 
   await setDoc(
     lifetimeRef,
     {
-      total,
+      total: recoveredTotal,
       updatedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
     },
     { merge: true }
   );
 
-  return total;
+  return recoveredTotal;
 }
 
 function withPromiseTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
@@ -633,10 +664,7 @@ export async function incrementVisitCount(cycleKey: string) {
   try {
     const counterRef = doc(db, 'visitor_counters', cycleKey);
     const lifetimeRef = doc(db, 'visitor_counters', '__lifetime__');
-    const lifetimeSnap = await getDoc(lifetimeRef);
-    const initialLifetimeTotal = lifetimeSnap.exists()
-      ? parseNonNegativeNumber((lifetimeSnap.data() as Record<string, unknown>).total, 0)
-      : await getCountFromServer(collection(db, 'visitors')).then((snap) => snap.data().count);
+    const initialLifetimeTotal = await getVisitorLifetimeTotal();
 
     await runTransaction(db, async (tx) => {
       const [snap, transactionLifetimeSnap] = await Promise.all([tx.get(counterRef), tx.get(lifetimeRef)]);
