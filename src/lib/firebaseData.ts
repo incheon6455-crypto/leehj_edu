@@ -183,9 +183,18 @@ function normalizeFirestoreError(error: unknown) {
 }
 
 export function getVisitorCycleKey(now: Date = new Date()) {
-  const cycleStart = new Date(now);
-  cycleStart.setHours(0, 0, 0, 0);
-  return cycleStart.toISOString();
+  const [year, month, day] = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+    .format(now)
+    .split('-')
+    .map(Number);
+
+  // KST(UTC+9) midnight as UTC timestamp.
+  return new Date(Date.UTC(year, month - 1, day, -9, 0, 0, 0)).toISOString();
 }
 
 function getVisitorHourBuckets(cycleStart: Date) {
