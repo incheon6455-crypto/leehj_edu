@@ -11,7 +11,7 @@ import {
 } from '../lib/firebaseData';
 
 const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
-const VISITOR_COUNTED_SESSION_KEY = 'visitor_counted_cycle_key';
+const VISITOR_COUNTED_SESSION_KEY = 'visitor_counted_in_session';
 
 function CountUp({ value }: { value: number }) {
   const spring = useSpring(0, { stiffness: 50, damping: 20 });
@@ -68,11 +68,10 @@ export function KPISection() {
       const adminLoggedIn = await isAdminLoggedIn();
       const isMobileViewport = window.matchMedia('(max-width: 1023px)').matches;
       const isMobileReload = isMobileViewport && isReloadNavigation();
-      const alreadyCountedCycleKey = sessionStorage.getItem(VISITOR_COUNTED_SESSION_KEY);
-      const alreadyCountedInSession = alreadyCountedCycleKey === cycleKey;
+      const alreadyCountedInSession = sessionStorage.getItem(VISITOR_COUNTED_SESSION_KEY) === '1';
       if (!adminLoggedIn && !alreadyCountedInSession && !isMobileReload) {
         // Lock first to avoid duplicate increments during rapid remounts.
-        sessionStorage.setItem(VISITOR_COUNTED_SESSION_KEY, cycleKey);
+        sessionStorage.setItem(VISITOR_COUNTED_SESSION_KEY, '1');
         const counted = await incrementVisitCount(cycleKey);
         if (!counted) {
           sessionStorage.removeItem(VISITOR_COUNTED_SESSION_KEY);
