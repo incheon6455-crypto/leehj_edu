@@ -53,6 +53,14 @@ export interface PolicyProposalItem {
   createdAt: string;
 }
 
+export interface ContactInquiryItem {
+  id: string;
+  name: string;
+  phone: string;
+  message: string;
+  createdAt: string;
+}
+
 export interface PolicyCatalogItem {
   id: string;
   category: string;
@@ -110,6 +118,7 @@ export interface AdminDashboardData {
   upcomingEvents: EventItem[];
   recentPolicies: PolicyCatalogItem[];
   recentSupportMessages: SupportMessageItem[];
+  recentContacts: ContactInquiryItem[];
   updatedAt: string;
 }
 
@@ -995,6 +1004,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       upcomingEvents,
       recentPolicies: policyCatalog,
       recentSupportMessages: [],
+      recentContacts: [],
       updatedAt,
     };
   }
@@ -1007,6 +1017,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     const eventsRef = collection(db, 'events');
     const supportRef = collection(db, 'support_messages');
     const proposalsRef = collection(db, 'policy_proposals');
+    const contactsRef = collection(db, 'contacts');
     const membersRef = collection(db, 'admin_members');
     const visitorsQuery = query(collection(db, 'visitors'), where('cycleKey', '==', cycleKey));
 
@@ -1020,6 +1031,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       recentPostsSnap,
       upcomingEventsSnap,
       recentSupportSnap,
+      recentContactsSnap,
       supportMembersSnap,
       proposalMembersSnap,
       manualMembersSnap,
@@ -1035,6 +1047,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       getDocs(query(postsRef, orderBy('date', 'desc'))),
       getDocs(query(eventsRef, orderBy('date', 'asc'))),
       getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
+      getDocs(query(contactsRef, orderBy('createdAt', 'desc'), limit(50))),
       getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
       getDocs(query(proposalsRef, orderBy('createdAt', 'desc'))),
       getDocs(query(membersRef, orderBy('createdAt', 'desc'))),
@@ -1091,6 +1104,17 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         content: String(data.content ?? ''),
         createdAt: safeDate(data.createdAt),
       } satisfies SupportMessageItem;
+    });
+
+    const recentContacts = recentContactsSnap.docs.map((docItem) => {
+      const data = docItem.data() as Record<string, unknown>;
+      return {
+        id: docItem.id,
+        name: String(data.name ?? ''),
+        phone: String(data.phone ?? ''),
+        message: String(data.message ?? ''),
+        createdAt: safeDate(data.createdAt),
+      } satisfies ContactInquiryItem;
     });
 
     const allPolicyProposals = proposalMembersSnap.docs.map((docItem) => {
@@ -1188,6 +1212,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       upcomingEvents,
       recentPolicies: policyCatalog,
       recentSupportMessages,
+      recentContacts,
       updatedAt,
     };
   } catch {
@@ -1223,6 +1248,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       upcomingEvents: events.slice(0, 5),
       recentPolicies: policyCatalog,
       recentSupportMessages: support.slice(0, 7),
+      recentContacts: [],
       updatedAt,
     };
   }
