@@ -117,6 +117,7 @@ function getEmptyDashboard(): AdminDashboardData {
       events: 0,
       policyProposals: 0,
       supportMessages: 0,
+      contacts: 0,
       visitorsToday: 0,
     },
     visitorTrend: Array.from({ length: 24 }, (_, index) => ({
@@ -204,6 +205,7 @@ export default function Admin() {
   const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
   const [isPolicyProposalsModalOpen, setIsPolicyProposalsModalOpen] = useState(false);
   const [isSupportMessagesModalOpen, setIsSupportMessagesModalOpen] = useState(false);
+  const [isContactBoardModalOpen, setIsContactBoardModalOpen] = useState(false);
   const [selectedContactInquiry, setSelectedContactInquiry] = useState<ContactInquiryItem | null>(null);
   const [isContactInquiryModalOpen, setIsContactInquiryModalOpen] = useState(false);
   const [isVisitorLogModalOpen, setIsVisitorLogModalOpen] = useState(false);
@@ -332,6 +334,7 @@ export default function Admin() {
       { label: '전체 행사', value: dashboard.totals.events, icon: CalendarDays, color: 'text-emerald-600' },
       { label: '정책제안', value: dashboard.totals.policyProposals, icon: Pencil, color: 'text-violet-600' },
       { label: '응원 메시지', value: dashboard.totals.supportMessages, icon: MessageSquareText, color: 'text-amber-600' },
+      { label: '문의 게시판', value: dashboard.totals.contacts, icon: MessageSquareText, color: 'text-cyan-600' },
     ],
     [dashboard.totals]
   );
@@ -740,6 +743,7 @@ export default function Admin() {
   };
 
   const handleOpenContactInquiry = (item: ContactInquiryItem) => {
+    setIsContactBoardModalOpen(false);
     setSelectedContactInquiry(item);
     setIsContactInquiryModalOpen(true);
   };
@@ -867,7 +871,7 @@ export default function Admin() {
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         ) : null}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           {metrics.map((metric, index) =>
             index === 0 ? (
               <button
@@ -939,6 +943,20 @@ export default function Admin() {
                 <p className="text-2xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
                 <p className="mt-2 text-xs text-amber-600">클릭해서 응원 메시지 보기</p>
               </button>
+            ) : index === 5 ? (
+              <button
+                key={metric.label}
+                type="button"
+                onClick={() => setIsContactBoardModalOpen(true)}
+                className="text-left bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:border-cyan-200 hover:shadow-md transition"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[13px] text-slate-500">{metric.label}</p>
+                  <metric.icon className={metric.color} size={16} />
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
+                <p className="mt-2 text-xs text-cyan-600">클릭해서 문의 게시판 보기</p>
+              </button>
             ) : (
               <div key={metric.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
@@ -951,42 +969,8 @@ export default function Admin() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-6">
-          <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 h-fit">
-            <div className="mb-3">
-              <h2 className="text-lg font-bold text-slate-900">문의 게시판</h2>
-              <p className="text-xs text-slate-500 mt-1">후원/문의 페이지에서 접수된 문의</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <div className="grid grid-cols-[1fr_86px] bg-slate-50 text-xs font-bold text-slate-700">
-                <div className="px-3 py-2 border-r border-slate-200">이름 / 연락처</div>
-                <div className="px-3 py-2 text-center">등록일</div>
-              </div>
-              <div className="max-h-[520px] overflow-y-auto">
-                {dashboard.recentContacts.length === 0 ? (
-                  <div className="px-3 py-4 text-xs text-slate-400">접수된 문의가 없습니다.</div>
-                ) : (
-                  dashboard.recentContacts.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleOpenContactInquiry(item)}
-                      className="w-full grid grid-cols-[1fr_86px] text-left border-t border-slate-100 hover:bg-slate-50 transition"
-                    >
-                      <div className="px-3 py-2.5 border-r border-slate-100">
-                        <p className="text-xs font-bold text-slate-800 truncate">{item.name || '-'}</p>
-                        <p className="text-[11px] text-slate-500 truncate">{item.phone || '-'}</p>
-                      </div>
-                      <div className="px-2 py-2.5 text-[11px] text-slate-500 text-center">{formatDate(item.createdAt)}</div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          </section>
-
-          <div className="grid grid-cols-1 gap-6">
-            <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="grid grid-cols-1 gap-6">
+          <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <div className="mb-4 space-y-1">
               <h2 className="text-lg font-bold text-slate-900">메인 좌측 배경화면 관리</h2>
               <p className="text-sm text-slate-500">
@@ -1225,9 +1209,57 @@ export default function Admin() {
               )}
             </div>
             </section>
-          </div>
         </div>
       </div>
+
+      {isContactBoardModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 px-4 py-6 flex items-center justify-center"
+          onClick={() => setIsContactBoardModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-2xl bg-white border border-slate-100 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">문의 게시판</h3>
+                <p className="text-xs text-slate-500 mt-0.5">총 {dashboard.totals.contacts.toLocaleString()}개</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsContactBoardModalOpen(false)}
+                className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+                aria-label="문의 게시판 모달 닫기"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              {dashboard.recentContacts.length === 0 ? (
+                <p className="text-sm text-slate-400">접수된 문의가 없습니다.</p>
+              ) : (
+                dashboard.recentContacts.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleOpenContactInquiry(item)}
+                    className="w-full text-left rounded-xl border border-slate-100 p-4 hover:bg-slate-50 transition"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-slate-900">{item.name || '-'}</p>
+                      <p className="text-xs text-slate-500">{formatDate(item.createdAt)}</p>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">{item.phone || '-'}</p>
+                    <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap break-words">{item.message || '-'}</p>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isContactInquiryModalOpen && selectedContactInquiry ? (
         <div

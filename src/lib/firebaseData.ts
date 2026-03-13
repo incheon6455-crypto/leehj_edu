@@ -103,6 +103,7 @@ export interface AdminDashboardData {
     events: number;
     policyProposals: number;
     supportMessages: number;
+    contacts: number;
     visitorsToday: number;
   };
   visitorTrend: Array<{
@@ -992,6 +993,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         events: upcomingEvents.length,
         policyProposals: policyCatalog.length,
         supportMessages: 0,
+        contacts: 0,
         visitorsToday: 0,
       },
       visitorTrend: getVisitorHourBuckets(new Date()),
@@ -1026,6 +1028,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       eventsCountSnap,
       policyProposalsCountSnap,
       supportCountSnap,
+      contactsCountSnap,
       visitorsCountSnap,
       visitorsTrendSnap,
       recentPostsSnap,
@@ -1042,6 +1045,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       getCountFromServer(eventsRef),
       getCountFromServer(proposalsRef),
       getCountFromServer(supportRef),
+      getCountFromServer(contactsRef),
       getCountFromServer(visitorsQuery),
       getDocs(visitorsQuery),
       getDocs(query(postsRef, orderBy('date', 'desc'))),
@@ -1203,6 +1207,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         events: eventsCountSnap.data().count,
         policyProposals: policyCatalog.length || policyProposalsCountSnap.data().count,
         supportMessages: supportCountSnap.data().count,
+        contacts: contactsCountSnap.data().count,
         visitorsToday: Number(visitorsTodayTotal) || visitorsCountSnap.data().count,
       },
       visitorTrend,
@@ -1236,6 +1241,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         events: events.length,
         policyProposals: policyCatalog.length,
         supportMessages: support.length,
+        contacts: 0,
         visitorsToday: 0,
       },
       visitorTrend: getVisitorHourBuckets(new Date()),
