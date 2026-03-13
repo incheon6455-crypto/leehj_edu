@@ -215,6 +215,7 @@ const POLICY_REACTION_MIN = 1000;
 const POLICY_REACTION_MAX = 2000;
 const ADMIN_SESSION_COLLECTION = 'admin_sessions';
 const VISITOR_LIFETIME_BASELINE = 219;
+const VISITOR_LIFETIME_DOC_ID = 'lifetime_total';
 export const ADMIN_SESSION_STORAGE_KEY = 'admin_dashboard_session_token';
 
 export interface AdminIdentityProfile {
@@ -275,7 +276,7 @@ async function getVisitorCounterTotal(cycleKey: string, initializeIfMissing = fa
 async function getVisitorLifetimeTotal() {
   if (!db || !isFirebaseConfigured) return VISITOR_LIFETIME_BASELINE;
 
-  const lifetimeRef = doc(db, 'visitor_counters', '__lifetime__');
+  const lifetimeRef = doc(db, 'visitor_counters', VISITOR_LIFETIME_DOC_ID);
   const [lifetimeSnap, visitorsCountSnap] = await Promise.all([
     getDoc(lifetimeRef),
     getCountFromServer(collection(db, 'visitors')),
@@ -658,7 +659,7 @@ export async function incrementVisitCount(cycleKey: string) {
   if (!db || !isFirebaseConfigured) return false;
   try {
     const counterRef = doc(db, 'visitor_counters', cycleKey);
-    const lifetimeRef = doc(db, 'visitor_counters', '__lifetime__');
+    const lifetimeRef = doc(db, 'visitor_counters', VISITOR_LIFETIME_DOC_ID);
     let initialLifetimeTotal = VISITOR_LIFETIME_BASELINE;
     try {
       initialLifetimeTotal = await getVisitorLifetimeTotal();
