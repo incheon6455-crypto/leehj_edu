@@ -303,6 +303,14 @@ export default function Admin() {
     loadHeroImages();
   }, [isLoggedIn]);
 
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const timer = window.setInterval(() => {
+      loadDashboard();
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [isLoggedIn]);
+
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     if (password !== ADMIN_PASSWORD) {

@@ -490,6 +490,35 @@ async function submitSupportMessageViaRest(payload: { name: string; phone: strin
   }
 }
 
+async function submitContactViaRest(payload: { name: string; phone: string; message: string }) {
+  const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/contacts?key=${firebaseConfig.apiKey}`;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        fields: {
+          name: { stringValue: payload.name },
+          phone: { stringValue: payload.phone },
+          message: { stringValue: payload.message },
+          createdAt: { timestampValue: new Date().toISOString() },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `REST write failed (${response.status})`);
+    }
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 async function createPostViaRest(payload: {
   title: string;
   content: string;
@@ -857,15 +886,48 @@ export async function incrementVisitCount(cycleKey: string) {
 }
 
 export async function submitContact(payload: { name: string; phone: string; message: string }) {
-  if (!db || !isFirebaseConfigured) return;
+  if (!db || !isFirebaseConfigured) {
+    throw new Error('Firebase is not configured');
+  }
+
+  const normalized = {
+    name: String(payload.name || '').trim(),
+    phone: String(payload.phone || '').trim(),
+    message: String(payload.message || '').trim(),
+  };
+
+  if (!normalized.name || !normalized.phone || !normalized.message) {
+    throw new Error('contact-required');
+  }
+
   try {
-    await addDoc(collection(db, 'contacts'), {
-      name: payload.name,
-      phone: payload.phone,
-      message: payload.message,
-      createdAt: serverTimestamp(),
-    });
+    await withPromiseTimeout(
+      addDoc(collection(db, 'contacts'), {
+        name: normalized.name,
+        phone: normalized.phone,
+        message: normalized.message,
+        createdAt: serverTimestamp(),
+      }),
+      7000,
+      'sdk-timeout'
+    );
   } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    const canFallback =
+      message.includes('sdk-timeout') ||
+      message.includes('unavailable') ||
+      message.includes('network') ||
+      message.includes('Failed to fetch');
+
+    if (canFallback) {
+      try {
+        await submitContactViaRest(normalized);
+        return;
+      } catch (restError) {
+        throw normalizeFirestoreError(restError);
+      }
+    }
+
     throw normalizeFirestoreError(error);
   }
 }
@@ -1023,6 +1085,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     const membersRef = collection(db, 'admin_members');
     const visitorsQuery = query(collection(db, 'visitors'), where('cycleKey', '==', cycleKey));
 
+    const contactsCountPromise = getCountFromServer(contactsRef).catch(() => null);
+    const recentContactsPromise = getDocs(query(contactsRef, orderBy('createdAt', 'desc'), limit(50))).catch(() => null);
+
     const [
       postsCountSnap,
       eventsCountSnap,
@@ -1045,13 +1110,13 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       getCountFromServer(eventsRef),
       getCountFromServer(proposalsRef),
       getCountFromServer(supportRef),
-      getCountFromServer(contactsRef),
+      contactsCountPromise,
       getCountFromServer(visitorsQuery),
       getDocs(visitorsQuery),
       getDocs(query(postsRef, orderBy('date', 'desc'))),
       getDocs(query(eventsRef, orderBy('date', 'asc'))),
       getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
-      getDocs(query(contactsRef, orderBy('createdAt', 'desc'), limit(50))),
+      recentContactsPromise,
       getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
       getDocs(query(proposalsRef, orderBy('createdAt', 'desc'))),
       getDocs(query(membersRef, orderBy('createdAt', 'desc'))),
@@ -1110,7 +1175,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       } satisfies SupportMessageItem;
     });
 
-    const recentContacts = recentContactsSnap.docs.map((docItem) => {
+    const recentContacts = (recentContactsSnap?.docs ?? []).map((docItem) => {
       const data = docItem.data() as Record<string, unknown>;
       return {
         id: docItem.id,
@@ -1207,7 +1272,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         events: eventsCountSnap.data().count,
         policyProposals: policyCatalog.length || policyProposalsCountSnap.data().count,
         supportMessages: supportCountSnap.data().count,
-        contacts: contactsCountSnap.data().count,
+        contacts: contactsCountSnap ? contactsCountSnap.data().count : recentContacts.length,
         visitorsToday: Number(visitorsTodayTotal) || visitorsCountSnap.data().count,
       },
       visitorTrend,
