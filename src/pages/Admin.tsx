@@ -88,6 +88,15 @@ function formatPhoneForDisplay(phone: string) {
   return digits || '-';
 }
 
+function formatPhoneInputValue(phone: string) {
+  const digits = phone.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  if (digits.length <= 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+}
+
 function getUtf8ByteLength(value: string) {
   return new TextEncoder().encode(value).length;
 }
@@ -164,12 +173,19 @@ export default function Admin() {
   const [memberActionError, setMemberActionError] = useState('');
   const [uploadingCsv, setUploadingCsv] = useState(false);
   const [smsMessage, setSmsMessage] = useState('');
+  const [smsSenderNumber, setSmsSenderNumber] = useState('');
+  const [smsRecipientPhones, setSmsRecipientPhones] = useState<string[]>(
+    Array.from({ length: SMS_MAX_RECIPIENTS_PER_REQUEST }, () => '')
+  );
+  const [smsRecipientNames, setSmsRecipientNames] = useState<string[]>(
+    Array.from({ length: SMS_MAX_RECIPIENTS_PER_REQUEST }, () => '')
+  );
   const [smsError, setSmsError] = useState('');
   const [smsSuccess, setSmsSuccess] = useState('');
   const [sendingSms, setSendingSms] = useState(false);
   const [smsUseLms, setSmsUseLms] = useState(false);
   const [smsRecipientStatuses, setSmsRecipientStatuses] = useState<
-    Record<string, '대기' | '요청 완료' | '요청 실패'>
+    Record<number, '대기' | '요청 완료' | '요청 실패'>
   >({});
   const [heroImages, setHeroImages] = useState<Array<HeroBackgroundImageItem | null>>(
     Array.from({ length: HERO_IMAGE_SLOT_COUNT }, () => null)
@@ -345,17 +361,36 @@ export default function Admin() {
       displayPhone: formatPhoneForDisplay(member.phone),
     }))
     .filter((target) => target.phoneDigits.length >= 10);
+  const smsRecipientRows = useMemo(
+    () =>
+      Array.from({ length: SMS_MAX_RECIPIENTS_PER_REQUEST }, (_, index) => ({
+        rowNo: index + 1,
+        name: smsRecipientNames[index] || '',
+        phone: smsRecipientPhones[index] || '',
+      })),
+    [smsRecipientNames, smsRecipientPhones]
+  );
+  const smsValidRecipientRows = useMemo(
+    () =>
+      smsRecipientRows
+        .map((row) => ({
+          rowNo: row.rowNo,
+          phoneDigits: row.phone.replace(/\D/g, ''),
+        }))
+        .filter((row) => row.phoneDigits.length >= 10),
+    [smsRecipientRows]
+  );
   const smsMessageBytes = getUtf8ByteLength(smsMessage);
   useEffect(() => {
     if (!isSmsModalOpen) return;
     setSmsRecipientStatuses((prev) => {
-      const next: Record<string, '대기' | '요청 완료' | '요청 실패'> = {};
-      selectedSmsTargets.forEach((target) => {
-        next[target.id] = prev[target.id] ?? '대기';
-      });
+      const next: Record<number, '대기' | '요청 완료' | '요청 실패'> = {};
+      for (let rowNo = 1; rowNo <= SMS_MAX_RECIPIENTS_PER_REQUEST; rowNo += 1) {
+        next[rowNo] = prev[rowNo] ?? '대기';
+      }
       return next;
     });
-  }, [isSmsModalOpen, selectedSmsTargets]);
+  }, [isSmsModalOpen, smsRecipientPhones]);
 
   const handleDeleteSelectedMembers = () => {
     if (selectedMemberIds.length === 0) return;
@@ -674,6 +709,15 @@ export default function Admin() {
   };
 
   const handleOpenSmsModal = () => {
+    const nextNames = Array.from({ length: SMS_MAX_RECIPIENTS_PER_REQUEST }, () => '');
+    const nextPhones = Array.from({ length: SMS_MAX_RECIPIENTS_PER_REQUEST }, () => '');
+    selectedSmsTargets.slice(0, SMS_MAX_RECIPIENTS_PER_REQUEST).forEach((target, index) => {
+      nextNames[index] = target.name;
+      nextPhones[index] = target.displayPhone;
+    });
+    setSmsRecipientNames(nextNames);
+    setSmsRecipientPhones(nextPhones);
+
     if (selectedSmsTargets.length > SMS_MAX_RECIPIENTS_PER_REQUEST) {
       setSmsError(`한 번에 최대 ${SMS_MAX_RECIPIENTS_PER_REQUEST}건까지 발송할 수 있습니다.`);
     } else {
@@ -681,8 +725,10 @@ export default function Admin() {
     }
     setSmsSuccess('');
     setSmsRecipientStatuses(
-      selectedSmsTargets.reduce<Record<string, '대기' | '요청 완료' | '요청 실패'>>((acc, target) => {
-        acc[target.id] = '대기';
+      Array.from({ length: SMS_MAX_RECIPIENTS_PER_REQUEST }, (_, index) => index + 1).reduce<
+        Record<number, '대기' | '요청 완료' | '요청 실패'>
+      >((acc, rowNo) => {
+        acc[rowNo] = '대기';
         return acc;
       }, {})
     );
@@ -693,11 +739,15 @@ export default function Admin() {
     setSmsError('');
     setSmsSuccess('');
 
-    if (selectedSmsTargets.length === 0) {
+    if (selectedSmsTargets.length > SMS_MAX_RECIPIENTS_PER_REQUEST) {
+      setSmsError(`한 번에 최대 ${SMS_MAX_RECIPIENTS_PER_REQUEST}건까지 발송할 수 있습니다.`);
+      return;
+    }
+    if (smsValidRecipientRows.length === 0) {
       setSmsError('전화번호가 유효한 발송 대상이 없습니다.');
       return;
     }
-    if (selectedSmsTargets.length > SMS_MAX_RECIPIENTS_PER_REQUEST) {
+    if (smsValidRecipientRows.length > SMS_MAX_RECIPIENTS_PER_REQUEST) {
       setSmsError(`한 번에 최대 ${SMS_MAX_RECIPIENTS_PER_REQUEST}건까지 발송할 수 있습니다.`);
       return;
     }
@@ -709,28 +759,34 @@ export default function Admin() {
     setSendingSms(true);
     try {
       setSmsRecipientStatuses(
-        selectedSmsTargets.reduce<Record<string, '대기' | '요청 완료' | '요청 실패'>>((acc, target) => {
-          acc[target.id] = '대기';
+        Array.from({ length: SMS_MAX_RECIPIENTS_PER_REQUEST }, (_, index) => index + 1).reduce<
+          Record<number, '대기' | '요청 완료' | '요청 실패'>
+        >((acc, rowNo) => {
+          acc[rowNo] = smsValidRecipientRows.some((row) => row.rowNo === rowNo) ? '대기' : '요청 실패';
           return acc;
         }, {})
       );
       await createSmsRequest({
-        recipients: selectedSmsTargets.map((target) => target.phoneDigits),
+        recipients: smsValidRecipientRows.map((row) => row.phoneDigits),
         message: smsMessage.trim(),
         requestedBy: 'admin_dashboard',
       });
       setSmsRecipientStatuses(
-        selectedSmsTargets.reduce<Record<string, '대기' | '요청 완료' | '요청 실패'>>((acc, target) => {
-          acc[target.id] = '요청 완료';
+        Array.from({ length: SMS_MAX_RECIPIENTS_PER_REQUEST }, (_, index) => index + 1).reduce<
+          Record<number, '대기' | '요청 완료' | '요청 실패'>
+        >((acc, rowNo) => {
+          acc[rowNo] = smsValidRecipientRows.some((row) => row.rowNo === rowNo) ? '요청 완료' : '대기';
           return acc;
         }, {})
       );
-      setSmsSuccess(`문자 발송 요청이 접수되었습니다. (${selectedSmsTargets.length}건)`);
+      setSmsSuccess(`문자 발송 요청이 접수되었습니다. (${smsValidRecipientRows.length}건)`);
       setSmsMessage('');
     } catch (error) {
       setSmsRecipientStatuses(
-        selectedSmsTargets.reduce<Record<string, '대기' | '요청 완료' | '요청 실패'>>((acc, target) => {
-          acc[target.id] = '요청 실패';
+        Array.from({ length: SMS_MAX_RECIPIENTS_PER_REQUEST }, (_, index) => index + 1).reduce<
+          Record<number, '대기' | '요청 완료' | '요청 실패'>
+        >((acc, rowNo) => {
+          acc[rowNo] = smsValidRecipientRows.some((row) => row.rowNo === rowNo) ? '요청 실패' : '대기';
           return acc;
         }, {})
       );
@@ -979,10 +1035,9 @@ export default function Admin() {
                   <button
                     type="button"
                     onClick={handleOpenSmsModal}
-                    disabled={selectedMemberIds.length === 0}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label="선택 회원 문자메시지"
-                    title="선택 회원 문자메시지"
+                    aria-label="문자메시지 발송"
+                    title="문자메시지 발송"
                   >
                     <MessageSquareText size={16} />
                   </button>
@@ -1423,10 +1478,17 @@ export default function Admin() {
             <div className="px-4 pb-4 flex-1 min-h-0 flex flex-col">
               <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
                 <div className="rounded-3xl bg-[#d9dce0] border border-slate-300 p-4">
-                  <div className="mb-2 inline-flex rounded-xl border-2 border-[#2e4fd7] bg-white overflow-hidden">
-                    <div className="bg-[#254ad0] text-white text-xs font-bold flex items-center justify-center px-5 py-1.5">
-                      발신
+                  <div className="mb-2 rounded-xl border-2 border-[#2e4fd7] bg-white overflow-hidden flex items-stretch">
+                    <div className="bg-[#254ad0] text-white text-xs font-bold flex items-center justify-center px-4 py-1.5 shrink-0">
+                      발신자
                     </div>
+                    <input
+                      type="text"
+                      value={smsSenderNumber}
+                      onChange={(e) => setSmsSenderNumber(formatPhoneInputValue(e.target.value.replace(/\D/g, '').slice(0, 11)))}
+                      placeholder="발신번호 입력"
+                      className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white outline-none"
+                    />
                   </div>
 
                   <textarea
@@ -1461,10 +1523,10 @@ export default function Admin() {
                       <div className="px-1 py-2 border-l border-slate-300 text-center">상태</div>
                     </div>
                     <div className="max-h-[430px] overflow-y-auto">
-                      {selectedSmsTargets.map((target, rowIndex) => {
+                      {smsRecipientRows.map((target, rowIndex) => {
                         const no = rowIndex + 1;
                         return (
-                          <div key={`sms-row-${target.id}`} className="grid grid-cols-[42px_82px_minmax(0,1fr)_52px] border-b border-slate-200 last:border-b-0 bg-white">
+                          <div key={`sms-row-${no}`} className="grid grid-cols-[42px_82px_minmax(0,1fr)_52px] border-b border-slate-200 last:border-b-0 bg-white">
                             <div className="px-2 py-2 text-sm font-semibold text-slate-900">{no}</div>
                             <div className="px-2 py-1 border-l border-slate-200">
                               <input
@@ -1475,22 +1537,29 @@ export default function Admin() {
                             </div>
                             <div className="px-2 py-1 border-l border-slate-200">
                               <input
-                                value={target.displayPhone || ''}
-                                readOnly
+                                value={target.phone || ''}
+                                onChange={(e) =>
+                                  setSmsRecipientPhones((prev) => {
+                                    const next = [...prev];
+                                    next[rowIndex] = formatPhoneInputValue(e.target.value.replace(/\D/g, '').slice(0, 11));
+                                    return next;
+                                  })
+                                }
+                                placeholder="전화번호 입력"
                                 className="w-full rounded-lg border border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] text-slate-700"
                               />
                             </div>
                             <div className="px-1 py-1 border-l border-slate-200 flex items-center justify-center">
                               <span
                                 className={`text-[11px] font-bold ${
-                                  smsRecipientStatuses[target.id] === '요청 완료'
+                                  smsRecipientStatuses[no] === '요청 완료'
                                     ? 'text-emerald-600'
-                                    : smsRecipientStatuses[target.id] === '요청 실패'
+                                    : smsRecipientStatuses[no] === '요청 실패'
                                       ? 'text-red-600'
                                       : 'text-slate-400'
                                 }`}
                               >
-                                {smsRecipientStatuses[target.id] ?? '대기'}
+                                {smsRecipientStatuses[no] ?? '대기'}
                               </span>
                             </div>
                           </div>
@@ -1520,7 +1589,7 @@ export default function Admin() {
                 <button
                   type="button"
                   onClick={handleSendSms}
-                  disabled={sendingSms || selectedSmsTargets.length === 0 || selectedSmsTargets.length > SMS_MAX_RECIPIENTS_PER_REQUEST}
+                  disabled={sendingSms || smsValidRecipientRows.length === 0 || selectedSmsTargets.length > SMS_MAX_RECIPIENTS_PER_REQUEST}
                   className="rounded-lg bg-[#2e4fd7] px-4 py-2 text-sm font-bold text-white hover:bg-[#2645c1] disabled:opacity-60"
                 >
                   {sendingSms ? '발송 요청 중...' : '문자 발송'}
