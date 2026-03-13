@@ -1430,8 +1430,8 @@ export default function Admin() {
 
             <div className="px-4 pb-4 space-y-3">
               <div className="rounded-3xl bg-[#d9dce0] border border-slate-300 p-4">
-                <div className="mb-2 rounded-xl border-2 border-[#2e4fd7] bg-white overflow-hidden">
-                  <div className="bg-[#254ad0] text-white text-xs font-bold flex items-center justify-center py-2">
+                <div className="mb-2 inline-flex rounded-xl border-2 border-[#2e4fd7] bg-white overflow-hidden">
+                  <div className="bg-[#254ad0] text-white text-xs font-bold flex items-center justify-center px-5 py-1.5">
                     발신
                   </div>
                 </div>
