@@ -264,7 +264,7 @@ export default function Admin() {
 
   const metrics = useMemo(
     () => [
-      { label: '오늘 방문 로그(6시 기준)', value: dashboard.totals.visitorsToday, icon: Users, color: 'text-burgundy' },
+      { label: '오늘 방문 로그(00시 기준)', value: dashboard.totals.visitorsToday, icon: Users, color: 'text-burgundy' },
       { label: '전체 게시물', value: dashboard.totals.posts, icon: FileText, color: 'text-blue-600' },
       { label: '전체 행사', value: dashboard.totals.events, icon: CalendarDays, color: 'text-emerald-600' },
       { label: '응원 메시지', value: dashboard.totals.supportMessages, icon: MessageSquareText, color: 'text-amber-600' },
@@ -1030,7 +1030,7 @@ export default function Admin() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">오늘 방문 로그 상세</h3>
-                <p className="text-xs text-slate-500 mt-0.5">최근 7일(6시 기준) 일간 접속자 수</p>
+                <p className="text-xs text-slate-500 mt-0.5">최근 7일(00시 기준) 일간 접속자 수</p>
               </div>
               <button
                 type="button"

@@ -5,21 +5,13 @@ import { cn } from '../lib/utils';
 import {
   ADMIN_SESSION_STORAGE_KEY,
   getAdminSessionProfile,
+  getVisitorCycleKey,
   getStats,
   incrementVisitCount,
 } from '../lib/firebaseData';
 
 const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
-const VISITOR_COUNTED_SESSION_KEY = 'visitor_counted_in_session';
-
-function get6amCycleKey(now: Date = new Date()) {
-  const cycleStart = new Date(now);
-  cycleStart.setHours(6, 0, 0, 0);
-  if (now < cycleStart) {
-    cycleStart.setDate(cycleStart.getDate() - 1);
-  }
-  return cycleStart.toISOString();
-}
+const VISITOR_COUNTED_SESSION_KEY = 'visitor_counted_cycle_key';
 
 function CountUp({ value }: { value: number }) {
   const spring = useSpring(0, { stiffness: 50, damping: 20 });
@@ -42,7 +34,7 @@ function isReloadNavigation() {
 }
 
 export function KPISection() {
-  const [stats, setStats] = useState({ visitors: 0, posts: 0, events: 0 });
+  const [stats, setStats] = useState({ visitorsTotal: 0, visitorsToday: 0, posts: 0, events: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -72,14 +64,15 @@ export function KPISection() {
     };
 
     const syncStats = async () => {
-      const cycleKey = get6amCycleKey();
+      const cycleKey = getVisitorCycleKey();
       const adminLoggedIn = await isAdminLoggedIn();
       const isMobileViewport = window.matchMedia('(max-width: 1023px)').matches;
       const isMobileReload = isMobileViewport && isReloadNavigation();
-      const alreadyCountedInSession = sessionStorage.getItem(VISITOR_COUNTED_SESSION_KEY) === '1';
+      const alreadyCountedCycleKey = sessionStorage.getItem(VISITOR_COUNTED_SESSION_KEY);
+      const alreadyCountedInSession = alreadyCountedCycleKey === cycleKey;
       if (!adminLoggedIn && !alreadyCountedInSession && !isMobileReload) {
         // Lock first to avoid duplicate increments during rapid remounts.
-        sessionStorage.setItem(VISITOR_COUNTED_SESSION_KEY, '1');
+        sessionStorage.setItem(VISITOR_COUNTED_SESSION_KEY, cycleKey);
         const counted = await incrementVisitCount(cycleKey);
         if (!counted) {
           sessionStorage.removeItem(VISITOR_COUNTED_SESSION_KEY);
@@ -89,7 +82,8 @@ export function KPISection() {
       const data = await getStats();
       if (cancelled) return;
       setStats({
-        visitors: Number(data?.visitorsTotal) || 0,
+        visitorsTotal: Number(data?.visitorsTotal) || 0,
+        visitorsToday: Number(data?.visitorsToday) || 0,
         posts: Number(data?.posts) || 0,
         events: Number(data?.events) || 0,
       });
@@ -102,7 +96,8 @@ export function KPISection() {
   }, []);
 
   const cards = [
-    { label: '총 누적 방문자', value: stats.visitors, icon: Users, color: 'text-burgundy' },
+    { label: '총 누적 방문자', value: stats.visitorsTotal, icon: Users, color: 'text-burgundy' },
+    { label: '오늘 방문자', value: stats.visitorsToday, icon: Users, color: 'text-rose-600' },
     { label: '게시물', value: stats.posts, icon: FileText, color: 'text-blue-600' },
     { label: '예정된 행사', value: stats.events, icon: Calendar, color: 'text-emerald-600' },
   ];
@@ -115,7 +110,7 @@ export function KPISection() {
       viewport={{ once: true }}
       className="bg-white/90 backdrop-blur-md p-5 md:p-6 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05),0_8px_10px_-6px_rgba(0,0,0,0.05)] border border-burgundy/20"
     >
-      <div className="grid grid-cols-3 md:grid-cols-3 md:divide-x-0 divide-y-0">
+      <div className="grid grid-cols-2 md:grid-cols-4 md:divide-x-0 divide-y-0">
         {cards.map((card, i) => (
           <div
             key={card.label}

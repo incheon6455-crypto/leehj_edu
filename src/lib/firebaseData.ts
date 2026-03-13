@@ -182,12 +182,9 @@ function normalizeFirestoreError(error: unknown) {
   return new Error('Firebase request failed');
 }
 
-function get6amCycleKey(now: Date = new Date()) {
+export function getVisitorCycleKey(now: Date = new Date()) {
   const cycleStart = new Date(now);
-  cycleStart.setHours(6, 0, 0, 0);
-  if (now < cycleStart) {
-    cycleStart.setDate(cycleStart.getDate() - 1);
-  }
+  cycleStart.setHours(0, 0, 0, 0);
   return cycleStart.toISOString();
 }
 
@@ -272,6 +269,32 @@ async function getVisitorCounterTotal(cycleKey: string, initializeIfMissing = fa
   const data = snap.data() as Record<string, unknown>;
   const count = parseNonNegativeNumber(data.count, 0);
   return count;
+}
+
+async function getVisitorLifetimeTotal() {
+  if (!db || !isFirebaseConfigured) return 0;
+
+  const lifetimeRef = doc(db, 'visitor_counters', '__lifetime__');
+  const lifetimeSnap = await getDoc(lifetimeRef);
+  if (lifetimeSnap.exists()) {
+    const data = lifetimeSnap.data() as Record<string, unknown>;
+    return parseNonNegativeNumber(data.total, 0);
+  }
+
+  const visitorsCountSnap = await getCountFromServer(collection(db, 'visitors'));
+  const total = visitorsCountSnap.data().count;
+
+  await setDoc(
+    lifetimeRef,
+    {
+      total,
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return total;
 }
 
 function withPromiseTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
@@ -569,28 +592,34 @@ export async function getStats() {
   }
 
   try {
+    const cycleKey = getVisitorCycleKey();
     const postsRef = collection(db, 'posts');
     const eventsRef = collection(db, 'events');
     const supportRef = collection(db, 'support_messages');
-    const visitorsRef = collection(db, 'visitors');
+    const visitorsTodayRef = query(collection(db, 'visitors'), where('cycleKey', '==', cycleKey));
 
-    const [postsCountResult, eventsCountResult, supportCountResult, visitorsTotalResult] = await Promise.allSettled([
+    const [postsCountResult, eventsCountResult, supportCountResult, visitorsTodayResult, visitorsTotalResult] = await Promise.allSettled([
       getCountFromServer(postsRef),
       getCountFromServer(eventsRef),
       getCountFromServer(supportRef),
-      getCountFromServer(visitorsRef),
+      getCountFromServer(visitorsTodayRef),
+      getVisitorLifetimeTotal(),
     ]);
 
     const postsCount = postsCountResult.status === 'fulfilled' ? postsCountResult.value.data().count : 0;
     const eventsCount = eventsCountResult.status === 'fulfilled' ? eventsCountResult.value.data().count : 0;
     const supportCount = supportCountResult.status === 'fulfilled' ? supportCountResult.value.data().count : 0;
-    const visitorsTotal = visitorsTotalResult.status === 'fulfilled' ? visitorsTotalResult.value.data().count : 0;
+    const visitorsToday = visitorsTodayResult.status === 'fulfilled' ? visitorsTodayResult.value.data().count : 0;
+    const visitorsTotal =
+      visitorsTotalResult.status === 'fulfilled'
+        ? visitorsTotalResult.value
+        : visitorsToday;
 
     return {
       posts: postsCount,
       events: eventsCount,
       supportMessages: supportCount,
-      visitorsToday: visitorsTotal,
+      visitorsToday,
       visitorsTotal,
     };
   } catch {
@@ -603,25 +632,43 @@ export async function incrementVisitCount(cycleKey: string) {
   if (!db || !isFirebaseConfigured) return false;
   try {
     const counterRef = doc(db, 'visitor_counters', cycleKey);
+    const lifetimeRef = doc(db, 'visitor_counters', '__lifetime__');
+    const lifetimeSnap = await getDoc(lifetimeRef);
+    const initialLifetimeTotal = lifetimeSnap.exists()
+      ? parseNonNegativeNumber((lifetimeSnap.data() as Record<string, unknown>).total, 0)
+      : await getCountFromServer(collection(db, 'visitors')).then((snap) => snap.data().count);
+
     await runTransaction(db, async (tx) => {
-      const snap = await tx.get(counterRef);
+      const [snap, transactionLifetimeSnap] = await Promise.all([tx.get(counterRef), tx.get(lifetimeRef)]);
+      const previousLifetimeTotal = transactionLifetimeSnap.exists()
+        ? parseNonNegativeNumber((transactionLifetimeSnap.data() as Record<string, unknown>).total, initialLifetimeTotal)
+        : initialLifetimeTotal;
+      const nextLifetimeTotal = previousLifetimeTotal + 1;
+
       if (!snap.exists()) {
         tx.set(counterRef, {
           cycleKey,
           count: 1,
-          total: 1,
+          total: nextLifetimeTotal,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-        return;
+      } else {
+        const data = snap.data() as Record<string, unknown>;
+        const count = parseNonNegativeNumber(data.count, 0) + 1;
+        tx.update(counterRef, {
+          count,
+          total: nextLifetimeTotal,
+          updatedAt: serverTimestamp(),
+        });
       }
 
-      const data = snap.data() as Record<string, unknown>;
-      const count = parseNonNegativeNumber(data.count, 0) + 1;
-      tx.update(counterRef, {
-        count,
-        total: count,
+      tx.set(lifetimeRef, {
+        total: nextLifetimeTotal,
         updatedAt: serverTimestamp(),
+        createdAt: transactionLifetimeSnap.exists()
+          ? (transactionLifetimeSnap.data() as Record<string, unknown>).createdAt ?? serverTimestamp()
+          : serverTimestamp(),
       });
     });
 
@@ -718,7 +765,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   if (!db || !isFirebaseConfigured) {
     const recentPosts = [...FALLBACK_POSTS];
     const upcomingEvents = FALLBACK_EVENTS.slice(0, 5);
-    const todayCycleStart = new Date(get6amCycleKey());
+    const todayCycleStart = new Date(getVisitorCycleKey());
     return {
       totals: {
         posts: recentPosts.length,
@@ -740,7 +787,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   }
 
   try {
-    const cycleKey = get6amCycleKey();
+    const cycleKey = getVisitorCycleKey();
     const cycleStart = new Date(cycleKey);
     const dailyBuckets = getRecentVisitorDayBuckets(cycleStart, 7);
     const postsRef = collection(db, 'posts');
@@ -929,7 +976,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     };
   } catch {
     const [posts, events, support] = await Promise.all([getPosts(), getEvents(), getSupportMessages()]);
-    const todayCycleStart = new Date(get6amCycleKey());
+    const todayCycleStart = new Date(getVisitorCycleKey());
     const fallbackMembers = dedupeMembersByIdentity(
       support.map((item) => ({
         id: `support-${item.id}`,
