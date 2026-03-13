@@ -168,7 +168,6 @@ export default function Admin() {
   const [smsSuccess, setSmsSuccess] = useState('');
   const [sendingSms, setSendingSms] = useState(false);
   const [smsUseLms, setSmsUseLms] = useState(false);
-  const [smsRecipientPage, setSmsRecipientPage] = useState(1);
   const [smsRecipientStatuses, setSmsRecipientStatuses] = useState<
     Record<string, '대기' | '요청 완료' | '요청 실패'>
   >({});
@@ -347,10 +346,6 @@ export default function Admin() {
     }))
     .filter((target) => target.phoneDigits.length >= 10);
   const smsMessageBytes = getUtf8ByteLength(smsMessage);
-  const smsRecipientTotalPages = Math.max(1, Math.ceil(selectedSmsTargets.length / 10));
-  const smsPagedRecipients = selectedSmsTargets.slice((smsRecipientPage - 1) * 10, smsRecipientPage * 10);
-  const smsVisibleRows = Array.from({ length: 10 }, (_, index) => smsPagedRecipients[index] ?? null);
-
   useEffect(() => {
     if (!isSmsModalOpen) return;
     setSmsRecipientStatuses((prev) => {
@@ -361,12 +356,6 @@ export default function Admin() {
       return next;
     });
   }, [isSmsModalOpen, selectedSmsTargets]);
-
-  useEffect(() => {
-    if (smsRecipientPage > smsRecipientTotalPages) {
-      setSmsRecipientPage(1);
-    }
-  }, [smsRecipientPage, smsRecipientTotalPages]);
 
   const handleDeleteSelectedMembers = () => {
     if (selectedMemberIds.length === 0) return;
@@ -685,9 +674,12 @@ export default function Admin() {
   };
 
   const handleOpenSmsModal = () => {
-    setSmsError('');
+    if (selectedSmsTargets.length > SMS_MAX_RECIPIENTS_PER_REQUEST) {
+      setSmsError(`한 번에 최대 ${SMS_MAX_RECIPIENTS_PER_REQUEST}건까지 발송할 수 있습니다.`);
+    } else {
+      setSmsError('');
+    }
     setSmsSuccess('');
-    setSmsRecipientPage(1);
     setSmsRecipientStatuses(
       selectedSmsTargets.reduce<Record<string, '대기' | '요청 완료' | '요청 실패'>>((acc, target) => {
         acc[target.id] = '대기';
@@ -1467,45 +1459,43 @@ export default function Admin() {
                     <div className="px-2 py-2 border-l border-slate-300">수신번호</div>
                     <div className="px-1 py-2 border-l border-slate-300 text-center">상태</div>
                   </div>
-                  {smsVisibleRows.map((target, rowIndex) => {
-                    const no = (smsRecipientPage - 1) * 10 + rowIndex + 1;
-                    return (
-                      <div key={`sms-row-${no}`} className="grid grid-cols-[42px_82px_minmax(0,1fr)_52px] border-b border-slate-200 last:border-b-0 bg-white">
-                        <div className="px-2 py-2 text-sm font-semibold text-slate-900">{no}</div>
-                        <div className="px-2 py-1 border-l border-slate-200">
-                          <input
-                            value={target?.name || ''}
-                            readOnly
-                            className="w-full rounded-lg border border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] text-slate-700"
-                          />
-                        </div>
-                        <div className="px-2 py-1 border-l border-slate-200">
-                          <input
-                            value={target?.displayPhone || ''}
-                            readOnly
-                            className="w-full rounded-lg border border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] text-slate-700"
-                          />
-                        </div>
-                        <div className="px-1 py-1 border-l border-slate-200 flex items-center justify-center">
-                          <span
-                            className={`text-[11px] font-bold ${
-                              target
-                                ? smsRecipientStatuses[target.id] === '요청 완료'
+                  <div className="max-h-[260px] overflow-y-auto">
+                    {selectedSmsTargets.map((target, rowIndex) => {
+                      const no = rowIndex + 1;
+                      return (
+                        <div key={`sms-row-${target.id}`} className="grid grid-cols-[42px_82px_minmax(0,1fr)_52px] border-b border-slate-200 last:border-b-0 bg-white">
+                          <div className="px-2 py-2 text-sm font-semibold text-slate-900">{no}</div>
+                          <div className="px-2 py-1 border-l border-slate-200">
+                            <input
+                              value={target.name || ''}
+                              readOnly
+                              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] text-slate-700"
+                            />
+                          </div>
+                          <div className="px-2 py-1 border-l border-slate-200">
+                            <input
+                              value={target.displayPhone || ''}
+                              readOnly
+                              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] text-slate-700"
+                            />
+                          </div>
+                          <div className="px-1 py-1 border-l border-slate-200 flex items-center justify-center">
+                            <span
+                              className={`text-[11px] font-bold ${
+                                smsRecipientStatuses[target.id] === '요청 완료'
                                   ? 'text-emerald-600'
                                   : smsRecipientStatuses[target.id] === '요청 실패'
                                     ? 'text-red-600'
                                     : 'text-slate-400'
-                                : 'text-slate-300'
-                            }`}
-                          >
-                            {target
-                              ? smsRecipientStatuses[target.id] ?? '대기'
-                              : '-'}
-                          </span>
+                              }`}
+                            >
+                              {smsRecipientStatuses[target.id] ?? '대기'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
