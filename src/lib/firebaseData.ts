@@ -624,19 +624,21 @@ export async function markEventAsPast(eventId: string) {
 export async function getStats() {
   if (!db || !isFirebaseConfigured) {
     const [posts, events] = await Promise.all([getPosts(), getEvents()]);
-    return { posts: posts.length, events: events.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
+    const upcomingEvents = events.filter((item) => Number(item.is_past ?? 0) === 0);
+    return { posts: posts.length, events: upcomingEvents.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
   }
 
   try {
     const cycleKey = getVisitorCycleKey();
     const postsRef = collection(db, 'posts');
     const eventsRef = collection(db, 'events');
+    const upcomingEventsRef = query(eventsRef, where('is_past', '==', 0));
     const supportRef = collection(db, 'support_messages');
     const visitorsTodayRef = query(collection(db, 'visitors'), where('cycleKey', '==', cycleKey));
 
     const [postsCountResult, eventsCountResult, supportCountResult, visitorsTodayResult, visitorsTotalResult] = await Promise.allSettled([
       getCountFromServer(postsRef),
-      getCountFromServer(eventsRef),
+      getCountFromServer(upcomingEventsRef),
       getCountFromServer(supportRef),
       getCountFromServer(visitorsTodayRef),
       getVisitorLifetimeTotal(),
@@ -660,7 +662,8 @@ export async function getStats() {
     };
   } catch {
     const [posts, events] = await Promise.all([getPosts(), getEvents()]);
-    return { posts: posts.length, events: events.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
+    const upcomingEvents = events.filter((item) => Number(item.is_past ?? 0) === 0);
+    return { posts: posts.length, events: upcomingEvents.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
   }
 }
 
