@@ -214,6 +214,7 @@ function getRecentVisitorDayBuckets(cycleStart: Date, days: number) {
 const POLICY_REACTION_MIN = 1000;
 const POLICY_REACTION_MAX = 2000;
 const ADMIN_SESSION_COLLECTION = 'admin_sessions';
+const VISITOR_LIFETIME_BASELINE = 219;
 export const ADMIN_SESSION_STORAGE_KEY = 'admin_dashboard_session_token';
 
 export interface AdminIdentityProfile {
@@ -272,7 +273,7 @@ async function getVisitorCounterTotal(cycleKey: string, initializeIfMissing = fa
 }
 
 async function getVisitorLifetimeTotal() {
-  if (!db || !isFirebaseConfigured) return 0;
+  if (!db || !isFirebaseConfigured) return VISITOR_LIFETIME_BASELINE;
 
   const lifetimeRef = doc(db, 'visitor_counters', '__lifetime__');
   const [lifetimeSnap, visitorsCountSnap] = await Promise.all([
@@ -280,12 +281,19 @@ async function getVisitorLifetimeTotal() {
     getCountFromServer(collection(db, 'visitors')),
   ]);
 
-  const visitorsTotalFromLogs = visitorsCountSnap.data().count;
+  const visitorsTotalFromLogs = Math.max(
+    parseNonNegativeNumber(visitorsCountSnap.data().count, 0),
+    VISITOR_LIFETIME_BASELINE
+  );
 
   if (lifetimeSnap.exists()) {
     const data = lifetimeSnap.data() as Record<string, unknown>;
     const lifetimeTotal = parseNonNegativeNumber(data.total, 0);
-    const normalizedLifetimeTotal = Math.max(lifetimeTotal, visitorsTotalFromLogs);
+    const normalizedLifetimeTotal = Math.max(
+      lifetimeTotal,
+      visitorsTotalFromLogs,
+      VISITOR_LIFETIME_BASELINE
+    );
 
     if (normalizedLifetimeTotal !== lifetimeTotal) {
       await setDoc(
@@ -631,7 +639,7 @@ export async function getStats() {
     const visitorsTotal =
       visitorsTotalResult.status === 'fulfilled'
         ? visitorsTotalResult.value
-        : visitorsToday;
+        : Math.max(visitorsToday, VISITOR_LIFETIME_BASELINE);
 
     return {
       posts: postsCount,
@@ -651,7 +659,12 @@ export async function incrementVisitCount(cycleKey: string) {
   try {
     const counterRef = doc(db, 'visitor_counters', cycleKey);
     const lifetimeRef = doc(db, 'visitor_counters', '__lifetime__');
-    const initialLifetimeTotal = await getVisitorLifetimeTotal();
+    let initialLifetimeTotal = VISITOR_LIFETIME_BASELINE;
+    try {
+      initialLifetimeTotal = await getVisitorLifetimeTotal();
+    } catch {
+      initialLifetimeTotal = VISITOR_LIFETIME_BASELINE;
+    }
 
     await runTransaction(db, async (tx) => {
       const [snap, transactionLifetimeSnap] = await Promise.all([tx.get(counterRef), tx.get(lifetimeRef)]);
