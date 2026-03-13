@@ -18,6 +18,7 @@ import {
   ADMIN_SESSION_STORAGE_KEY,
   createAdminSession,
   createAdminMember,
+  createSmsRequest,
   deleteAdminSession,
   deleteEvent,
   deletePolicy,
@@ -58,6 +59,8 @@ const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
 const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 const HERO_IMAGE_SLOT_COUNT = 4;
 const HERO_IMAGE_MAX_BYTES = 850 * 1024;
+const SMS_MAX_RECIPIENTS_PER_REQUEST = 20;
+const SMS_MAX_MESSAGE_BYTES = 90;
 
 function maskName(name: string) {
   if (name.length < 2) return name;
@@ -69,6 +72,32 @@ function maskPhone(phone: string) {
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 4) return '***-****-****';
   return `***-****-${digits.slice(-4)}`;
+}
+
+function formatPhoneForDisplay(phone: string) {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    if (digits.startsWith('02')) {
+      return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return digits || '-';
+}
+
+function getUtf8ByteLength(value: string) {
+  return new TextEncoder().encode(value).length;
+}
+
+function trimToUtf8Bytes(value: string, maxBytes: number) {
+  let result = value;
+  while (result && getUtf8ByteLength(result) > maxBytes) {
+    result = result.slice(0, -1);
+  }
+  return result;
 }
 
 function getEmptyDashboard(): AdminDashboardData {
@@ -129,10 +158,20 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+  const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<MemberManagementItem | null>(null);
   const [savingMember, setSavingMember] = useState(false);
   const [memberActionError, setMemberActionError] = useState('');
   const [uploadingCsv, setUploadingCsv] = useState(false);
+  const [smsMessage, setSmsMessage] = useState('');
+  const [smsError, setSmsError] = useState('');
+  const [smsSuccess, setSmsSuccess] = useState('');
+  const [sendingSms, setSendingSms] = useState(false);
+  const [smsUseLms, setSmsUseLms] = useState(false);
+  const [smsRecipientPage, setSmsRecipientPage] = useState(1);
+  const [smsRecipientStatuses, setSmsRecipientStatuses] = useState<
+    Record<string, '대기' | '요청 완료' | '요청 실패'>
+  >({});
   const [heroImages, setHeroImages] = useState<Array<HeroBackgroundImageItem | null>>(
     Array.from({ length: HERO_IMAGE_SLOT_COUNT }, () => null)
   );
@@ -297,10 +336,40 @@ export default function Admin() {
   }, [dashboard.dailyVisitorTrend]);
 
   const allMembersSelected = dashboard.members.length > 0 && selectedMemberIds.length === dashboard.members.length;
+  const selectedMembers = dashboard.members.filter((member) => selectedMemberIds.includes(member.id));
+  const selectedSmsTargets = selectedMembers
+    .map((member, index) => ({
+      id: member.id,
+      name: member.name || '',
+      order: index + 1,
+      phoneDigits: member.phone.replace(/\D/g, ''),
+      displayPhone: formatPhoneForDisplay(member.phone),
+    }))
+    .filter((target) => target.phoneDigits.length >= 10);
+  const smsMessageBytes = getUtf8ByteLength(smsMessage);
+  const smsRecipientTotalPages = Math.max(1, Math.ceil(selectedSmsTargets.length / 10));
+  const smsPagedRecipients = selectedSmsTargets.slice((smsRecipientPage - 1) * 10, smsRecipientPage * 10);
+  const smsVisibleRows = Array.from({ length: 10 }, (_, index) => smsPagedRecipients[index] ?? null);
+
+  useEffect(() => {
+    if (!isSmsModalOpen) return;
+    setSmsRecipientStatuses((prev) => {
+      const next: Record<string, '대기' | '요청 완료' | '요청 실패'> = {};
+      selectedSmsTargets.forEach((target) => {
+        next[target.id] = prev[target.id] ?? '대기';
+      });
+      return next;
+    });
+  }, [isSmsModalOpen, selectedSmsTargets]);
+
+  useEffect(() => {
+    if (smsRecipientPage > smsRecipientTotalPages) {
+      setSmsRecipientPage(1);
+    }
+  }, [smsRecipientPage, smsRecipientTotalPages]);
 
   const handleDeleteSelectedMembers = () => {
     if (selectedMemberIds.length === 0) return;
-    const selectedMembers = dashboard.members.filter((member) => selectedMemberIds.includes(member.id));
     Promise.all(selectedMembers.map((member) => deleteMemberAndRelatedContent(member)))
       .then(() => {
         setSelectedMemberIds([]);
@@ -615,6 +684,75 @@ export default function Admin() {
     }
   };
 
+  const handleOpenSmsModal = () => {
+    setSmsError('');
+    setSmsSuccess('');
+    setSmsRecipientPage(1);
+    setSmsRecipientStatuses(
+      selectedSmsTargets.reduce<Record<string, '대기' | '요청 완료' | '요청 실패'>>((acc, target) => {
+        acc[target.id] = '대기';
+        return acc;
+      }, {})
+    );
+    setIsSmsModalOpen(true);
+  };
+
+  const handleSendSms = async () => {
+    setSmsError('');
+    setSmsSuccess('');
+
+    if (selectedSmsTargets.length === 0) {
+      setSmsError('전화번호가 유효한 발송 대상이 없습니다.');
+      return;
+    }
+    if (selectedSmsTargets.length > SMS_MAX_RECIPIENTS_PER_REQUEST) {
+      setSmsError(`한 번에 최대 ${SMS_MAX_RECIPIENTS_PER_REQUEST}건까지 발송할 수 있습니다.`);
+      return;
+    }
+    if (!smsMessage.trim()) {
+      setSmsError('문자 메시지 내용을 입력해 주세요.');
+      return;
+    }
+
+    setSendingSms(true);
+    try {
+      setSmsRecipientStatuses(
+        selectedSmsTargets.reduce<Record<string, '대기' | '요청 완료' | '요청 실패'>>((acc, target) => {
+          acc[target.id] = '대기';
+          return acc;
+        }, {})
+      );
+      await createSmsRequest({
+        recipients: selectedSmsTargets.map((target) => target.phoneDigits),
+        message: smsMessage.trim(),
+        requestedBy: 'admin_dashboard',
+      });
+      setSmsRecipientStatuses(
+        selectedSmsTargets.reduce<Record<string, '대기' | '요청 완료' | '요청 실패'>>((acc, target) => {
+          acc[target.id] = '요청 완료';
+          return acc;
+        }, {})
+      );
+      setSmsSuccess(`문자 발송 요청이 접수되었습니다. (${selectedSmsTargets.length}건)`);
+      setSmsMessage('');
+    } catch (error) {
+      setSmsRecipientStatuses(
+        selectedSmsTargets.reduce<Record<string, '대기' | '요청 완료' | '요청 실패'>>((acc, target) => {
+          acc[target.id] = '요청 실패';
+          return acc;
+        }, {})
+      );
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('sms-max-20')) {
+        setSmsError(`한 번에 최대 ${SMS_MAX_RECIPIENTS_PER_REQUEST}건까지 발송할 수 있습니다.`);
+      } else {
+        setSmsError('문자 발송 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      setSendingSms(false);
+    }
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 [&_button:enabled]:cursor-pointer [&_button:disabled]:cursor-not-allowed">
@@ -848,6 +986,7 @@ export default function Admin() {
                   </button>
                   <button
                     type="button"
+                    onClick={handleOpenSmsModal}
                     disabled={selectedMemberIds.length === 0}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="선택 회원 문자메시지"
@@ -1268,6 +1407,135 @@ export default function Admin() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSmsModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 px-4 py-6 flex items-center justify-center"
+          onClick={() => {
+            if (sendingSms) return;
+            setIsSmsModalOpen(false);
+          }}
+        >
+          <div
+            className="w-[655px] h-[767px] rounded-3xl bg-[#f2f3f5] border border-slate-300 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 pt-3 pb-2 flex justify-center">
+              <div className="h-3 w-28 rounded-full bg-slate-500/70" />
+            </div>
+
+            <div className="px-4 pb-4 space-y-3">
+              <div className="rounded-3xl bg-[#d9dce0] border border-slate-300 p-4">
+                <div className="mb-2 rounded-xl border-2 border-[#2e4fd7] bg-white overflow-hidden">
+                  <div className="bg-[#254ad0] text-white text-xs font-bold flex items-center justify-center py-2">
+                    발신
+                  </div>
+                </div>
+
+                <textarea
+                  id="sms-message"
+                  rows={5}
+                  value={smsMessage}
+                  onChange={(e) => setSmsMessage(trimToUtf8Bytes(e.target.value, SMS_MAX_MESSAGE_BYTES))}
+                  placeholder="내용입력"
+                  className="w-full rounded-2xl border border-slate-300 bg-[#f7f7f8] px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 resize-none min-h-[270px]"
+                />
+
+                <div className="mt-2 flex items-center justify-between">
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={smsUseLms}
+                      onChange={(e) => setSmsUseLms(e.target.checked)}
+                      className="h-4 w-4 accent-[#2e4fd7]"
+                    />
+                    LMS
+                  </label>
+                  <p className="text-xs font-semibold text-slate-800">{smsMessageBytes}/{SMS_MAX_MESSAGE_BYTES}Byte</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white border border-slate-300 p-2">
+                <div className="border border-slate-300 rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-[50px_1fr_1fr_30px] bg-slate-100 text-xs font-bold text-slate-800 border-b border-slate-300">
+                    <div className="px-2 py-2">No.</div>
+                    <div className="px-2 py-2 border-l border-slate-300">수신자</div>
+                    <div className="px-2 py-2 border-l border-slate-300">수신번호</div>
+                    <div className="px-2 py-2 border-l border-slate-300" />
+                  </div>
+                  {smsVisibleRows.map((target, rowIndex) => {
+                    const no = (smsRecipientPage - 1) * 10 + rowIndex + 1;
+                    return (
+                      <div key={`sms-row-${no}`} className="grid grid-cols-[50px_1fr_1fr_30px] border-b border-slate-200 last:border-b-0 bg-white">
+                        <div className="px-2 py-2 text-sm font-semibold text-slate-900">{no}</div>
+                        <div className="px-2 py-1 border-l border-slate-200">
+                          <input
+                            value={target?.name || ''}
+                            readOnly
+                            className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-700"
+                          />
+                        </div>
+                        <div className="px-2 py-1 border-l border-slate-200">
+                          <input
+                            value={target?.displayPhone || ''}
+                            readOnly
+                            className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-700"
+                          />
+                        </div>
+                        <div className="px-1 py-1 border-l border-slate-200 flex items-center justify-center">
+                          <span
+                            className={`text-xs font-bold ${
+                              target
+                                ? smsRecipientStatuses[target.id] === '요청 완료'
+                                  ? 'text-emerald-600'
+                                  : smsRecipientStatuses[target.id] === '요청 실패'
+                                    ? 'text-red-600'
+                                    : 'text-slate-400'
+                                : 'text-slate-300'
+                            }`}
+                          >
+                            {target
+                              ? smsRecipientStatuses[target.id] === '대기'
+                                ? '×'
+                                : smsRecipientStatuses[target.id]
+                              : '×'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {smsError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{smsError}</div>
+              ) : null}
+              {smsSuccess ? (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{smsSuccess}</div>
+              ) : null}
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsSmsModalOpen(false)}
+                  disabled={sendingSms}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  닫기
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendSms}
+                  disabled={sendingSms || selectedSmsTargets.length === 0 || selectedSmsTargets.length > SMS_MAX_RECIPIENTS_PER_REQUEST}
+                  className="rounded-lg bg-[#2e4fd7] px-4 py-2 text-sm font-bold text-white hover:bg-[#2645c1] disabled:opacity-60"
+                >
+                  {sendingSms ? '발송 요청 중...' : '문자 발송'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

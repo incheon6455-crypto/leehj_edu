@@ -605,6 +605,45 @@ export async function deletePost(postId: string) {
   }
 }
 
+export async function createSmsRequest(payload: {
+  recipients: string[];
+  message: string;
+  requestedBy?: string;
+}) {
+  if (!db || !isFirebaseConfigured) return null;
+
+  const recipients = payload.recipients
+    .map((item) => String(item || '').replace(/\D/g, ''))
+    .filter((item) => item.length >= 10);
+  const message = String(payload.message || '').trim();
+
+  if (recipients.length === 0) {
+    throw new Error('sms-recipients-required');
+  }
+  if (recipients.length > 20) {
+    throw new Error('sms-max-20');
+  }
+  if (!message) {
+    throw new Error('sms-message-required');
+  }
+
+  try {
+    const ref = await addDoc(collection(db, 'sms_requests'), {
+      recipients,
+      recipientCount: recipients.length,
+      message,
+      status: 'pending',
+      requestedBy: String(payload.requestedBy || 'admin'),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    return ref.id;
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function deletePolicy(policyId: string) {
   if (!db || !isFirebaseConfigured) return;
   try {
