@@ -94,6 +94,7 @@ function getEmptyDashboard(): AdminDashboardData {
     members: [],
     recentPosts: [],
     upcomingEvents: [],
+    recentPolicies: [],
     recentSupportMessages: [],
     updatedAt: new Date().toISOString(),
   };
@@ -143,6 +144,7 @@ export default function Admin() {
   const [isPostsModalOpen, setIsPostsModalOpen] = useState(false);
   const [isEventsModalOpen, setIsEventsModalOpen] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [isPolicyProposalsModalOpen, setIsPolicyProposalsModalOpen] = useState(false);
   const [isSupportMessagesModalOpen, setIsSupportMessagesModalOpen] = useState(false);
   const [isVisitorLogModalOpen, setIsVisitorLogModalOpen] = useState(false);
   const [loadingAddressSearch, setLoadingAddressSearch] = useState(false);
@@ -700,16 +702,19 @@ export default function Admin() {
                 <p className="mt-2 text-xs text-emerald-600">클릭해서 행사 보기</p>
               </button>
             ) : index === 3 ? (
-              <div
+              <button
                 key={metric.label}
-                className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm"
+                type="button"
+                onClick={() => setIsPolicyProposalsModalOpen(true)}
+                className="text-left bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:border-violet-200 hover:shadow-md transition"
               >
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-[13px] text-slate-500">{metric.label}</p>
                   <metric.icon className={metric.color} size={16} />
                 </div>
                 <p className="text-2xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
-              </div>
+                <p className="mt-2 text-xs text-violet-600">클릭해서 정책제안 보기</p>
+              </button>
             ) : index === 4 ? (
               <button
                 key={metric.label}
@@ -1189,6 +1194,50 @@ export default function Admin() {
                       <p className="text-xs text-slate-500">{formatDate(item.createdAt)}</p>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">{maskPhone(item.phone)}</p>
+                    <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{item.content || '-'}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isPolicyProposalsModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 px-4 py-6 flex items-center justify-center"
+          onClick={() => setIsPolicyProposalsModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-2xl bg-white border border-slate-100 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">정책제안</h3>
+                <p className="text-xs text-slate-500 mt-0.5">총 {dashboard.totals.policyProposals.toLocaleString()}개</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPolicyProposalsModalOpen(false)}
+                className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+                aria-label="정책제안 모달 닫기"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              {dashboard.recentPolicies.length === 0 ? (
+                <p className="text-sm text-slate-400">정책제안이 없습니다.</p>
+              ) : (
+                dashboard.recentPolicies.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-slate-100 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-slate-900">{item.title || '-'}</p>
+                      <p className="text-xs text-slate-500">{item.category || '-'}</p>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">{item.desc || '-'}</p>
                     <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{item.content || '-'}</p>
                   </div>
                 ))

@@ -53,6 +53,15 @@ export interface PolicyProposalItem {
   createdAt: string;
 }
 
+export interface PolicyCatalogItem {
+  id: string;
+  category: string;
+  title: string;
+  desc: string;
+  content: string;
+  order: number;
+}
+
 export interface PolicyReactionCountMap {
   [policyId: string]: number;
 }
@@ -99,9 +108,58 @@ export interface AdminDashboardData {
   members: MemberManagementItem[];
   recentPosts: Post[];
   upcomingEvents: EventItem[];
+  recentPolicies: PolicyCatalogItem[];
   recentSupportMessages: SupportMessageItem[];
   updatedAt: string;
 }
+
+const DEFAULT_POLICY_CATALOG: PolicyCatalogItem[] = [
+  {
+    id: 'policy-basic-literacy',
+    category: '기초학력',
+    title: '초등 기초학력 책임 전담제 도입',
+    desc: '모든 아이가 읽기, 쓰기, 셈하기를 완벽히 마스터할 수 있도록 전담 교사를 배치하겠습니다.',
+    content:
+      '기초학력 전담교사를 학교 단위로 배치하고, 학년 초 진단-중간 점검-학년 말 성취 확인으로 이어지는 3단계 지원 체계를 구축합니다. 읽기·쓰기·셈하기 맞춤형 보충 프로그램을 방과후 및 학습클리닉과 연계해 운영하겠습니다.',
+    order: 1,
+  },
+  {
+    id: 'policy-digital-ai',
+    category: '디지털전환',
+    title: '1인 1스마트 기기 및 AI 튜터 지원',
+    desc: '디지털 격차 없는 학습 환경을 위해 모든 학생에게 기기를 지원하고 맞춤형 AI 학습 도구를 제공합니다.',
+    content:
+      '학생 개별 학습 데이터를 기반으로 AI 튜터를 도입해 과목별 취약 단원을 자동 추천하고, 교사는 대시보드로 학습 진도를 관리할 수 있도록 하겠습니다. 가정 형편에 따른 디지털 격차가 없도록 기기와 네트워크 접근성을 함께 지원합니다.',
+    order: 2,
+  },
+  {
+    id: 'policy-safety-counsel',
+    category: '인성/안전',
+    title: '학교 폭력 제로, 마음 건강 센터 확대',
+    desc: '전문 상담 인력을 대폭 확충하여 아이들의 마음을 돌보고 안전한 학교 환경을 조성하겠습니다.',
+    content:
+      '학교별 상담 인력 확충과 외부 전문기관 연계를 통해 위기 학생을 조기에 발견하고 개입하겠습니다. 학교폭력 예방교육, 회복적 생활교육, 보호자 상담 프로그램을 통합 운영해 안전하고 존중받는 학교 문화를 만들겠습니다.',
+    order: 3,
+  },
+  {
+    id: 'policy-teacher-rights',
+    category: '교원복지',
+    title: '교권 보호 및 행정 업무 경감',
+    desc: '선생님이 가르치는 일에만 집중할 수 있도록 행정 지원 시스템을 혁신하고 법적 보호를 강화합니다.',
+    content:
+      '교사가 수업과 생활교육에 집중할 수 있도록 공문·행정 절차를 간소화하고, 반복 업무는 통합 플랫폼으로 자동화하겠습니다. 교권침해 발생 시 즉시 대응 가능한 법률지원 체계를 마련하겠습니다.',
+    order: 4,
+  },
+  {
+    id: 'policy-special-education',
+    category: '특수교육',
+    title: '특수학교 신설 및 통합 교육 지원 강화',
+    desc: '장애 학생들의 학습권을 보장하기 위해 특수 교육 인프라를 확충하고 맞춤형 지원을 확대합니다.',
+    content:
+      '지역 수요를 반영해 특수학교와 특수학급을 단계적으로 확대하고, 통합학급에는 보조인력과 전문교재를 지원하겠습니다. 학생의 장애 특성과 발달 단계에 맞춘 개별화교육계획(IEP) 실행력을 높이겠습니다.',
+    order: 5,
+  },
+];
 
 const FALLBACK_POSTS: Post[] = [
   {
@@ -816,8 +874,57 @@ export async function submitSupportMessage(payload: { name: string; phone: strin
   }
 }
 
+export async function getPolicies(): Promise<PolicyCatalogItem[]> {
+  if (!db || !isFirebaseConfigured) return DEFAULT_POLICY_CATALOG;
+
+  const policiesRef = collection(db, 'policies');
+
+  const normalizePolicies = (docs: Array<{ id: string; data: () => Record<string, unknown> }>) =>
+    docs
+      .map((docItem) => {
+        const data = docItem.data();
+        return {
+          id: docItem.id,
+          category: String(data.category ?? ''),
+          title: String(data.title ?? ''),
+          desc: String(data.desc ?? ''),
+          content: String(data.content ?? ''),
+          order: Number(data.order ?? Number.MAX_SAFE_INTEGER),
+        } satisfies PolicyCatalogItem;
+      })
+      .sort((a, b) => {
+        if (a.order !== b.order) return a.order - b.order;
+        return a.title.localeCompare(b.title);
+      });
+
+  try {
+    const snap = await getDocs(policiesRef);
+    if (!snap.empty) {
+      return normalizePolicies(snap.docs.map((docItem) => ({ id: docItem.id, data: () => docItem.data() as Record<string, unknown> })));
+    }
+
+    const batch = writeBatch(db);
+    DEFAULT_POLICY_CATALOG.forEach((item) => {
+      batch.set(doc(db, 'policies', item.id), {
+        category: item.category,
+        title: item.title,
+        desc: item.desc,
+        content: item.content,
+        order: item.order,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    });
+    await batch.commit();
+    return DEFAULT_POLICY_CATALOG;
+  } catch {
+    return DEFAULT_POLICY_CATALOG;
+  }
+}
+
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const updatedAt = new Date().toISOString();
+  const policyCatalog = await getPolicies();
   if (!db || !isFirebaseConfigured) {
     const recentPosts = [...FALLBACK_POSTS];
     const upcomingEvents = FALLBACK_EVENTS.slice(0, 5);
@@ -826,7 +933,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       totals: {
         posts: recentPosts.length,
         events: upcomingEvents.length,
-        policyProposals: 0,
+        policyProposals: policyCatalog.length,
         supportMessages: 0,
         visitorsToday: 0,
       },
@@ -838,6 +945,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       members: [],
       recentPosts,
       upcomingEvents,
+      recentPolicies: policyCatalog,
       recentSupportMessages: [],
       updatedAt,
     };
@@ -948,7 +1056,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         createdAt: safeDate(data.createdAt),
       } satisfies PolicyProposalItem;
     });
-
     const supportMembers: MemberManagementItem[] = supportMembersSnap.docs.map((docItem) => {
       const data = docItem.data() as Record<string, unknown>;
       const item = {
@@ -1022,7 +1129,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       totals: {
         posts: postsCountSnap.data().count,
         events: eventsCountSnap.data().count,
-        policyProposals: policyProposalsCountSnap.data().count,
+        policyProposals: policyCatalog.length || policyProposalsCountSnap.data().count,
         supportMessages: supportCountSnap.data().count,
         visitorsToday: Number(visitorsTodayTotal) || visitorsCountSnap.data().count,
       },
@@ -1031,6 +1138,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       members,
       recentPosts,
       upcomingEvents,
+      recentPolicies: policyCatalog,
       recentSupportMessages,
       updatedAt,
     };
@@ -1053,7 +1161,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       totals: {
         posts: posts.length,
         events: events.length,
-        policyProposals: 0,
+        policyProposals: policyCatalog.length,
         supportMessages: support.length,
         visitorsToday: 0,
       },
@@ -1065,6 +1173,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       members: fallbackMembers,
       recentPosts: posts,
       upcomingEvents: events.slice(0, 5),
+      recentPolicies: policyCatalog,
       recentSupportMessages: support.slice(0, 7),
       updatedAt,
     };
