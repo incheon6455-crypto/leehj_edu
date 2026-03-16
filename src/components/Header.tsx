@@ -71,6 +71,7 @@ export function Header() {
     sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
     sessionStorage.removeItem(ADMIN_PROFILE_STORAGE_KEY);
+    window.dispatchEvent(new Event('admin-session-changed'));
     setIsAdminMode(false);
     setAdminProfile(null);
     setIsAccountMenuOpen(false);

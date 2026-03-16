@@ -399,7 +399,7 @@ export default function Posts() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    let disposed = false;
 
     const syncAdminSession = async () => {
       let isAdmin = false;
@@ -408,27 +408,47 @@ export default function Posts() {
         if (sessionToken) {
           const profile = await getAdminSessionProfile(sessionToken);
           isAdmin = String(profile?.role || '').toLowerCase() === 'admin';
-        }
 
-        if (!isAdmin) {
-          const cachedProfileRaw = sessionStorage.getItem(ADMIN_PROFILE_STORAGE_KEY) || '';
-          if (cachedProfileRaw) {
-            const cachedProfile = JSON.parse(cachedProfileRaw) as { role?: string };
-            isAdmin = String(cachedProfile?.role || '').toLowerCase() === 'admin';
+          if (!isAdmin) {
+            const cachedProfileRaw = sessionStorage.getItem(ADMIN_PROFILE_STORAGE_KEY) || '';
+            if (cachedProfileRaw) {
+              const cachedProfile = JSON.parse(cachedProfileRaw) as { role?: string };
+              isAdmin = String(cachedProfile?.role || '').toLowerCase() === 'admin';
+            }
           }
         }
       } catch {
         isAdmin = false;
       }
 
-      if (!cancelled) {
+      if (!disposed) {
         setIsAdminLoggedIn(isAdmin);
+        if (!isAdmin) {
+          setIsWriteModalOpen(false);
+        }
       }
     };
 
-    syncAdminSession();
+    const handleAdminSessionChanged = () => {
+      void syncAdminSession();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void syncAdminSession();
+      }
+    };
+
+    void syncAdminSession();
+    window.addEventListener('storage', handleAdminSessionChanged);
+    window.addEventListener('focus', handleAdminSessionChanged);
+    window.addEventListener('admin-session-changed', handleAdminSessionChanged);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
-      cancelled = true;
+      disposed = true;
+      window.removeEventListener('storage', handleAdminSessionChanged);
+      window.removeEventListener('focus', handleAdminSessionChanged);
+      window.removeEventListener('admin-session-changed', handleAdminSessionChanged);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
