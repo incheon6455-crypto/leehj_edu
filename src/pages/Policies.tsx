@@ -168,46 +168,48 @@ export default function Policies() {
         </div>
 
         {/* Policy List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <AnimatePresence mode="popLayout">
-            {filteredPolicies.map((policy) => (
-              <motion.div
-                key={policy.id}
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="group bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-burgundy/20 transition-all cursor-pointer"
-                onClick={() => setSelectedPolicy(policy)}
-              >
-                <div className="flex justify-between items-start mb-6">
-                  <span className="px-3 py-1 bg-burgundy/5 text-burgundy text-xs font-bold rounded-full border-0">
-                    {policy.category}
-                  </span>
-                  <ChevronRight className="text-slate-300 group-hover:text-burgundy transition-colors" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-burgundy transition-colors">
-                  {policy.title}
-                </h3>
-                <p className="text-slate-600 leading-relaxed">
-                  {policy.desc}
-                </p>
-
-                <div className="mt-8 pt-6 border-t border-slate-50 flex items-center gap-4">
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 overflow-hidden">
-                        <img src={`https://picsum.photos/seed/user${i}/100`} alt="user" />
-                      </div>
-                    ))}
+        <div className="lg:max-h-[calc(13.5rem*3+0.75rem*2)] lg:overflow-y-auto lg:pr-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <AnimatePresence mode="popLayout">
+              {filteredPolicies.map((policy) => (
+                <motion.div
+                  key={policy.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="group h-[13.5rem] bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg hover:border-burgundy/20 transition-all cursor-pointer flex flex-col"
+                  onClick={() => setSelectedPolicy(policy)}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="px-2.5 py-1 bg-burgundy/5 text-burgundy text-[11px] font-bold rounded-full border-0 truncate max-w-[80%]">
+                      {policy.category}
+                    </span>
+                    <ChevronRight className="text-slate-300 group-hover:text-burgundy transition-colors shrink-0" size={16} />
                   </div>
-                  <span className="text-xs text-slate-400 font-medium">
-                    {(reactionCounts[policy.id] ?? 0).toLocaleString()}명의 시민이 공감합니다
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+                  <h3 className="text-base font-bold text-slate-900 mb-2 group-hover:text-burgundy transition-colors line-clamp-2">
+                    {policy.title}
+                  </h3>
+                  <p className="text-slate-600 text-sm leading-relaxed line-clamp-2 flex-1">
+                    {policy.desc}
+                  </p>
+
+                  <div className="mt-3 pt-2 border-t border-slate-50 flex items-center gap-3">
+                    <div className="flex -space-x-2">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-slate-100 overflow-hidden">
+                          <img src={`https://picsum.photos/seed/user${i}/100`} alt="user" />
+                        </div>
+                      ))}
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium truncate">
+                      {(reactionCounts[policy.id] ?? 0).toLocaleString()}명 공감
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
         </div>
 
         {filteredPolicies.length === 0 ? (
