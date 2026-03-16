@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, X, ThumbsUp } from 'lucide-react';
+import { Search, ChevronRight, X, ThumbsUp } from 'lucide-react';
 import {
   getPolicies,
   getPolicyReactionCounts,
@@ -72,6 +72,12 @@ export default function Policies() {
     title: '',
     content: '',
   });
+  const filteredPolicies = policies.filter(
+    (policy) =>
+      policy.title.includes(searchQuery) ||
+      policy.desc.includes(searchQuery) ||
+      policy.category.includes(searchQuery)
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -163,8 +169,52 @@ export default function Policies() {
 
         {/* Policy List */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <AnimatePresence mode="popLayout" />
+          <AnimatePresence mode="popLayout">
+            {filteredPolicies.map((policy) => (
+              <motion.div
+                key={policy.id}
+                layout
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="group bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-burgundy/20 transition-all cursor-pointer"
+                onClick={() => setSelectedPolicy(policy)}
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <span className="px-3 py-1 bg-burgundy/5 text-burgundy text-xs font-bold rounded-full border-0">
+                    {policy.category}
+                  </span>
+                  <ChevronRight className="text-slate-300 group-hover:text-burgundy transition-colors" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-burgundy transition-colors">
+                  {policy.title}
+                </h3>
+                <p className="text-slate-600 leading-relaxed">
+                  {policy.desc}
+                </p>
+
+                <div className="mt-8 pt-6 border-t border-slate-50 flex items-center gap-4">
+                  <div className="flex -space-x-2">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 overflow-hidden">
+                        <img src={`https://picsum.photos/seed/user${i}/100`} alt="user" />
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium">
+                    {(reactionCounts[policy.id] ?? 0).toLocaleString()}명의 시민이 공감합니다
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
+
+        {filteredPolicies.length === 0 ? (
+          <div className="text-center py-24 text-slate-400">
+            검색 결과가 없습니다. 다른 키워드로 검색해 보세요.
+          </div>
+        ) : null}
       </div>
 
       <AnimatePresence>
