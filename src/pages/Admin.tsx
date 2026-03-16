@@ -830,8 +830,13 @@ export default function Admin() {
       });
       setEditingPolicyProposalId(null);
       await loadDashboard();
-    } catch {
-      setError('정책 페이지 반영에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('permission-denied') || message.includes('Missing or insufficient permissions')) {
+        setError('정책 페이지 반영 권한이 없습니다. Firestore rules 배포를 확인해 주세요.');
+      } else {
+        setError('정책 페이지 반영에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
     } finally {
       setReflectingPolicyProposalId(null);
     }

@@ -29,6 +29,10 @@ service cloud.firestore {
       allow read, create, update, delete: if true;
     }
 
+    match /policies/{document=**} {
+      allow read, create, update, delete: if true;
+    }
+
     match /policy_proposals/{document=**} {
       allow read, create, update, delete: if true;
     }
