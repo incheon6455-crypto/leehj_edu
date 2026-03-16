@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { CONFIG } from '../config';
-import { Facebook, Instagram, Youtube, Mail, Phone, MapPin } from 'lucide-react';
+import { Facebook, Instagram, Youtube, Mail, MapPin } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -42,10 +42,6 @@ export function Footer() {
               <li className="flex items-start gap-3">
                 <MapPin size={18} className="text-gold shrink-0" />
                 <span>인천 미추홀구 경인로425번길 6 3층</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Phone size={18} className="text-gold shrink-0" />
-                <span>010-4619-6455</span>
               </li>
               <li className="flex items-center gap-3">
                 <Mail size={18} className="text-gold shrink-0" />
