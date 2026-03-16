@@ -22,7 +22,7 @@ import {
   deleteAdminSession,
   deleteContact,
   deleteEvent,
-  deletePolicy,
+  deletePolicyProposal,
   deletePost,
   deleteSupportMessage,
   deleteHeroBackgroundImage,
@@ -714,14 +714,14 @@ export default function Admin() {
     }
   };
 
-  const handleDeletePolicy = async (policyId: string) => {
-    setDeletingPolicyId(policyId);
+  const handleDeletePolicyProposal = async (proposalId: string) => {
+    setDeletingPolicyId(proposalId);
     setError('');
     try {
-      await deletePolicy(policyId);
+      await deletePolicyProposal(proposalId);
       await loadDashboard();
     } catch {
-      setError('정책 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      setError('정책제안 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setDeletingPolicyId(null);
     }
@@ -1623,10 +1623,10 @@ export default function Admin() {
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-bold text-slate-900">{item.title || '-'}</p>
                       <div className="flex items-center gap-2">
-                        <p className="text-xs text-slate-500">{item.category || '-'}</p>
+                        <p className="text-xs text-slate-500">{formatDate(item.createdAt)}</p>
                         <button
                           type="button"
-                          onClick={() => handleDeletePolicy(item.id)}
+                          onClick={() => handleDeletePolicyProposal(item.id)}
                           disabled={deletingPolicyId === item.id}
                           className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
                         >
@@ -1635,7 +1635,7 @@ export default function Admin() {
                         </button>
                       </div>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">{item.desc || '-'}</p>
+                    <p className="text-xs text-slate-500 mt-1">{maskName(item.proposer)} · {maskPhone(item.phone)}</p>
                     <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{item.content || '-'}</p>
                   </div>
                 ))

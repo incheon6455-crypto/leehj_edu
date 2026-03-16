@@ -117,7 +117,7 @@ export interface AdminDashboardData {
   members: MemberManagementItem[];
   recentPosts: Post[];
   upcomingEvents: EventItem[];
-  recentPolicies: PolicyCatalogItem[];
+  recentPolicies: PolicyProposalItem[];
   recentSupportMessages: SupportMessageItem[];
   recentContacts: ContactInquiryItem[];
   updatedAt: string;
@@ -692,6 +692,15 @@ export async function deletePolicy(policyId: string) {
   }
 }
 
+export async function deletePolicyProposal(proposalId: string) {
+  if (!db || !isFirebaseConfigured) return;
+  try {
+    await deleteDoc(doc(db, 'policy_proposals', proposalId));
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function getEvents(): Promise<EventItem[]> {
   if (!db || !isFirebaseConfigured) return FALLBACK_EVENTS;
   try {
@@ -1062,7 +1071,6 @@ export async function getPolicies(): Promise<PolicyCatalogItem[]> {
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const updatedAt = new Date().toISOString();
-  const policyCatalog = await getPolicies();
   if (!db || !isFirebaseConfigured) {
     const recentPosts = [...FALLBACK_POSTS];
     const upcomingEvents = FALLBACK_EVENTS.slice(0, 5);
@@ -1071,7 +1079,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       totals: {
         posts: recentPosts.length,
         events: upcomingEvents.length,
-        policyProposals: policyCatalog.length,
+        policyProposals: 0,
         supportMessages: 0,
         contacts: 0,
         visitorsToday: 0,
@@ -1084,7 +1092,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       members: [],
       recentPosts,
       upcomingEvents,
-      recentPolicies: policyCatalog,
+      recentPolicies: [],
       recentSupportMessages: [],
       recentContacts: [],
       updatedAt,
@@ -1288,7 +1296,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       totals: {
         posts: postsCountSnap.data().count,
         events: eventsCountSnap.data().count,
-        policyProposals: policyCatalog.length || policyProposalsCountSnap.data().count,
+        policyProposals: policyProposalsCountSnap.data().count,
         supportMessages: supportCountSnap.data().count,
         contacts: contactsCountSnap ? contactsCountSnap.data().count : recentContacts.length,
         visitorsToday: Number(visitorsTodayTotal) || visitorsCountSnap.data().count,
@@ -1298,13 +1306,13 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       members,
       recentPosts,
       upcomingEvents,
-      recentPolicies: policyCatalog,
+      recentPolicies: allPolicyProposals,
       recentSupportMessages,
       recentContacts,
       updatedAt,
     };
   } catch {
-    const [posts, events, support] = await Promise.all([getPosts(), getEvents(), getSupportMessages()]);
+    const [posts, events, support, policyProposals] = await Promise.all([getPosts(), getEvents(), getSupportMessages(), getPolicyProposals()]);
     const todayCycleStart = new Date(getVisitorCycleKey());
     const fallbackMembers = dedupeMembersByIdentity(
       support.map((item) => ({
@@ -1322,7 +1330,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       totals: {
         posts: posts.length,
         events: events.length,
-        policyProposals: policyCatalog.length,
+        policyProposals: policyProposals.length,
         supportMessages: support.length,
         contacts: 0,
         visitorsToday: 0,
@@ -1335,7 +1343,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       members: fallbackMembers,
       recentPosts: posts,
       upcomingEvents: events.slice(0, 5),
-      recentPolicies: policyCatalog,
+      recentPolicies: policyProposals,
       recentSupportMessages: support.slice(0, 7),
       recentContacts: [],
       updatedAt,
@@ -1366,6 +1374,27 @@ export async function submitPolicyProposal(payload: { proposer: string; phone: s
     } satisfies PolicyProposalItem;
   } catch (error) {
     throw normalizeFirestoreError(error);
+  }
+}
+
+export async function getPolicyProposals(): Promise<PolicyProposalItem[]> {
+  if (!db || !isFirebaseConfigured) return [];
+  try {
+    const snap = await getDocs(query(collection(db, 'policy_proposals'), orderBy('createdAt', 'desc'), limit(50)));
+    if (snap.empty) return [];
+    return snap.docs.map((docItem) => {
+      const data = docItem.data() as Record<string, unknown>;
+      return {
+        id: docItem.id,
+        proposer: String(data.proposer ?? ''),
+        phone: String(data.phone ?? ''),
+        title: String(data.title ?? ''),
+        content: String(data.content ?? ''),
+        createdAt: safeDate(data.createdAt),
+      } satisfies PolicyProposalItem;
+    });
+  } catch {
+    return [];
   }
 }
 
