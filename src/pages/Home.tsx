@@ -6,8 +6,6 @@ import { CONFIG } from '../config';
 import { stripHtmlTags } from '../lib/utils';
 import { KPISection } from '../components/KPISection';
 import {
-  ADMIN_SESSION_STORAGE_KEY,
-  getAdminSessionProfile,
   getHeroBackgroundImages,
   getPosts,
   getSupportMessages,
@@ -33,8 +31,6 @@ const DEFAULT_SUPPORT_MESSAGES = [
   { id: 'default-9', content: "학교 현장의 목소리를 끝까지 들어주세요.", name: "한소율", phone: "010-9012-3456" },
   { id: 'default-10', content: "좋은 교육으로 지역의 미래를 밝혀 주세요.", name: "오준서", phone: "010-1122-3344" },
 ].reverse();
-
-const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 
 function maskName(name: string) {
   if (name.length < 2) return name;
@@ -170,7 +166,6 @@ function buildPostDetailHtml(content: string) {
 export default function Home() {
   const navigate = useNavigate();
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [heroImageIndex, setHeroImageIndex] = useState(0);
   const [heroImages, setHeroImages] = useState<string[]>(DEFAULT_HERO_IMAGES);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -194,40 +189,6 @@ export default function Home() {
         });
         setLatestPosts(sortedPosts.slice(0, 9));
       });
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const syncAdminSession = async () => {
-      let isAdmin = false;
-      try {
-        const sessionToken = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
-        if (sessionToken) {
-          const profile = await getAdminSessionProfile(sessionToken);
-          isAdmin = String(profile?.role || '').toLowerCase() === 'admin';
-        }
-
-        if (!isAdmin) {
-          const cachedProfileRaw = sessionStorage.getItem(ADMIN_PROFILE_STORAGE_KEY) || '';
-          if (cachedProfileRaw) {
-            const cachedProfile = JSON.parse(cachedProfileRaw) as { role?: string };
-            isAdmin = String(cachedProfile?.role || '').toLowerCase() === 'admin';
-          }
-        }
-      } catch {
-        isAdmin = false;
-      }
-
-      if (!cancelled) {
-        setIsAdminLoggedIn(isAdmin);
-      }
-    };
-
-    syncAdminSession();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   useEffect(() => {
@@ -485,15 +446,13 @@ export default function Home() {
             <div className="space-y-6">
               <div className="mb-8 flex items-center justify-between gap-3">
                 <h3 className="text-xl font-bold border-l-4 border-gold pl-4 text-white">후보에게 응원의 메세지를 남겨 주세요</h3>
-                {isAdminLoggedIn && (
-                  <button
-                    type="button"
-                    onClick={() => setIsSupportModalOpen(true)}
-                    className="shrink-0 rounded-lg bg-gold/20 px-3 py-1.5 text-sm font-bold text-gold border border-gold/40 hover:bg-gold/30 transition-colors"
-                  >
-                    응원글 쓰기
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setIsSupportModalOpen(true)}
+                  className="shrink-0 rounded-lg bg-gold/20 px-3 py-1.5 text-sm font-bold text-gold border border-gold/40 hover:bg-gold/30 transition-colors"
+                >
+                  응원글 쓰기
+                </button>
               </div>
               <div className="bg-white/10 border border-white/20 backdrop-blur-sm border-l-4 border-gold shadow-lg shadow-black/20 overflow-hidden">
                 <ul>
