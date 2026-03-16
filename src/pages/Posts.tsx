@@ -3,7 +3,15 @@ import { motion } from 'motion/react';
 import { Calendar, Tag, ArrowRight, X, ImagePlus } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { formatDate, stripHtmlTags } from '../lib/utils';
-import { createPost, getPosts, type Post } from '../lib/firebaseData';
+import {
+  ADMIN_SESSION_STORAGE_KEY,
+  createPost,
+  getAdminSessionProfile,
+  getPosts,
+  type Post,
+} from '../lib/firebaseData';
+
+const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 
 async function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -354,6 +362,7 @@ function applyEditorMediaConstraints(root: HTMLElement) {
 export default function Posts() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [visibleCount, setVisibleCount] = useState(9);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
@@ -387,6 +396,40 @@ export default function Posts() {
         setVisibleCount(9);
         setLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncAdminSession = async () => {
+      let isAdmin = false;
+      try {
+        const sessionToken = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+        if (sessionToken) {
+          const profile = await getAdminSessionProfile(sessionToken);
+          isAdmin = String(profile?.role || '').toLowerCase() === 'admin';
+        }
+
+        if (!isAdmin) {
+          const cachedProfileRaw = sessionStorage.getItem(ADMIN_PROFILE_STORAGE_KEY) || '';
+          if (cachedProfileRaw) {
+            const cachedProfile = JSON.parse(cachedProfileRaw) as { role?: string };
+            isAdmin = String(cachedProfile?.role || '').toLowerCase() === 'admin';
+          }
+        }
+      } catch {
+        isAdmin = false;
+      }
+
+      if (!cancelled) {
+        setIsAdminLoggedIn(isAdmin);
+      }
+    };
+
+    syncAdminSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -608,7 +651,7 @@ export default function Posts() {
             <h1 className="text-4xl font-bold text-slate-900 mb-4">활동 소식</h1>
             <p className="text-slate-600">교육감 예비후보<br />이현준의 생생한 활동 현장을 전해드립니다.</p>
           </div>
-          {!isLatestOnly && (
+          {!isLatestOnly && isAdminLoggedIn && (
             <div className="flex items-center justify-end">
               <button
                 type="button"
