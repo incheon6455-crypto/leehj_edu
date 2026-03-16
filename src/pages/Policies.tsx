@@ -179,7 +179,7 @@ export default function Policies() {
                 onClick={() => setSelectedPolicy(policy)}
               >
                 <div className="flex justify-between items-start mb-6">
-                  <span className="px-3 py-1 bg-burgundy/5 text-burgundy text-xs font-bold rounded-full">
+                  <span className="px-3 py-1 bg-burgundy/5 text-burgundy text-xs font-bold rounded-full border-0">
                     {policy.category}
                   </span>
                   <ChevronRight className="text-slate-300 group-hover:text-burgundy transition-colors" />
@@ -233,7 +233,7 @@ export default function Policies() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-6">
-                <span className="px-3 py-1 bg-burgundy/5 text-burgundy text-xs font-bold rounded-full">
+                <span className="px-3 py-1 bg-burgundy/5 text-burgundy text-xs font-bold rounded-full border-0">
                   {selectedPolicy.category}
                 </span>
                 <button
