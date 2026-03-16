@@ -941,6 +941,15 @@ export async function deleteContact(contactId: string) {
   }
 }
 
+export async function deleteSupportMessage(messageId: string) {
+  if (!db || !isFirebaseConfigured) return;
+  try {
+    await deleteDoc(doc(db, 'support_messages', messageId));
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function getSupportMessages(): Promise<SupportMessageItem[]> {
   if (!db || !isFirebaseConfigured) return [];
   try {

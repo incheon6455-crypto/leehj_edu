@@ -24,6 +24,7 @@ import {
   deleteEvent,
   deletePolicy,
   deletePost,
+  deleteSupportMessage,
   deleteHeroBackgroundImage,
   deleteMemberAndRelatedContent,
   getAdminDashboardData,
@@ -205,6 +206,7 @@ export default function Admin() {
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
+  const [deletingSupportMessageId, setDeletingSupportMessageId] = useState<string | null>(null);
   const [isPolicyProposalsModalOpen, setIsPolicyProposalsModalOpen] = useState(false);
   const [isSupportMessagesModalOpen, setIsSupportMessagesModalOpen] = useState(false);
   const [isContactBoardModalOpen, setIsContactBoardModalOpen] = useState(false);
@@ -739,6 +741,19 @@ export default function Admin() {
       setError('문의 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setDeletingContactId(null);
+    }
+  };
+
+  const handleDeleteSupportMessage = async (messageId: string) => {
+    setDeletingSupportMessageId(messageId);
+    setError('');
+    try {
+      await deleteSupportMessage(messageId);
+      await loadDashboard();
+    } catch {
+      setError('응원 메시지 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setDeletingSupportMessageId(null);
     }
   };
 
@@ -1552,7 +1567,18 @@ export default function Admin() {
                   <div key={item.id} className="rounded-xl border border-slate-100 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-bold text-slate-900">{maskName(item.name)}</p>
-                      <p className="text-xs text-slate-500">{formatDate(item.createdAt)}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-slate-500">{formatDate(item.createdAt)}</p>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSupportMessage(item.id)}
+                          disabled={deletingSupportMessageId === item.id}
+                          className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                        >
+                          <Trash2 size={12} />
+                          {deletingSupportMessageId === item.id ? '삭제 중' : '삭제'}
+                        </button>
+                      </div>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">{maskPhone(item.phone)}</p>
                     <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{item.content || '-'}</p>
