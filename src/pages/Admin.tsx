@@ -29,7 +29,9 @@ import {
   deleteMemberAndRelatedContent,
   getAdminDashboardData,
   getHeroBackgroundImages,
+  reflectPolicyProposalToCatalog,
   saveHeroBackgroundImage,
+  updatePolicyProposal,
   updateMemberBySource,
   verifyAdminSession,
   type AdminDashboardData,
@@ -205,8 +207,14 @@ export default function Admin() {
   const [isEventsModalOpen, setIsEventsModalOpen] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
+  const [savingPolicyProposalId, setSavingPolicyProposalId] = useState<string | null>(null);
+  const [reflectingPolicyProposalId, setReflectingPolicyProposalId] = useState<string | null>(null);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
   const [deletingSupportMessageId, setDeletingSupportMessageId] = useState<string | null>(null);
+  const [editingPolicyProposalId, setEditingPolicyProposalId] = useState<string | null>(null);
+  const [policyProposalDrafts, setPolicyProposalDrafts] = useState<
+    Record<string, { category: string; title: string; desc: string; content: string; order: string }>
+  >({});
   const [isPolicyProposalsModalOpen, setIsPolicyProposalsModalOpen] = useState(false);
   const [isSupportMessagesModalOpen, setIsSupportMessagesModalOpen] = useState(false);
   const [isContactBoardModalOpen, setIsContactBoardModalOpen] = useState(false);
@@ -724,6 +732,108 @@ export default function Admin() {
       setError('정책제안 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setDeletingPolicyId(null);
+    }
+  };
+
+  const ensurePolicyProposalDraft = (item: AdminDashboardData['recentPolicies'][number]) => {
+    setPolicyProposalDrafts((prev) => {
+      if (prev[item.id]) return prev;
+      const fallbackDesc = (item.content || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+      return {
+        ...prev,
+        [item.id]: {
+          category: item.category || '정책제안',
+          title: item.title || '',
+          desc: item.desc || fallbackDesc,
+          content: item.content || '',
+          order: item.order && item.order > 0 ? String(item.order) : '',
+        },
+      };
+    });
+  };
+
+  const handleStartEditPolicyProposal = (item: AdminDashboardData['recentPolicies'][number]) => {
+    ensurePolicyProposalDraft(item);
+    setEditingPolicyProposalId(item.id);
+  };
+
+  const handleChangePolicyProposalDraft = (
+    proposalId: string,
+    field: 'category' | 'title' | 'desc' | 'content' | 'order',
+    value: string
+  ) => {
+    setPolicyProposalDrafts((prev) => ({
+      ...prev,
+      [proposalId]: {
+        category: prev[proposalId]?.category ?? '',
+        title: prev[proposalId]?.title ?? '',
+        desc: prev[proposalId]?.desc ?? '',
+        content: prev[proposalId]?.content ?? '',
+        order: prev[proposalId]?.order ?? '',
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSavePolicyProposalEdit = async (proposalId: string) => {
+    const draft = policyProposalDrafts[proposalId];
+    if (!draft) return;
+    if (!draft.title.trim() || !draft.content.trim()) {
+      setError('정책제안 제목과 내용을 입력해 주세요.');
+      return;
+    }
+
+    setSavingPolicyProposalId(proposalId);
+    setError('');
+    try {
+      const parsedOrder = Number(draft.order || 0);
+      await updatePolicyProposal(proposalId, {
+        category: draft.category.trim(),
+        title: draft.title.trim(),
+        desc: draft.desc.trim(),
+        content: draft.content.trim(),
+        order: Number.isFinite(parsedOrder) && parsedOrder > 0 ? parsedOrder : undefined,
+      });
+      setEditingPolicyProposalId(null);
+      await loadDashboard();
+    } catch {
+      setError('정책제안 수정에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setSavingPolicyProposalId(null);
+    }
+  };
+
+  const handleReflectPolicyProposal = async (item: AdminDashboardData['recentPolicies'][number]) => {
+    ensurePolicyProposalDraft(item);
+    const draft = policyProposalDrafts[item.id] ?? {
+      category: item.category || '정책제안',
+      title: item.title || '',
+      desc: item.desc || (item.content || '').replace(/\s+/g, ' ').trim().slice(0, 90),
+      content: item.content || '',
+      order: item.order && item.order > 0 ? String(item.order) : '',
+    };
+    if (!draft.category.trim() || !draft.title.trim() || !draft.desc.trim() || !draft.content.trim()) {
+      setError('정책반영 전 분류/제목/요약/내용을 모두 입력해 주세요.');
+      return;
+    }
+
+    setReflectingPolicyProposalId(item.id);
+    setError('');
+    try {
+      const parsedOrder = Number(draft.order || 0);
+      await reflectPolicyProposalToCatalog(item.id, {
+        category: draft.category.trim(),
+        title: draft.title.trim(),
+        desc: draft.desc.trim(),
+        content: draft.content.trim(),
+        order: Number.isFinite(parsedOrder) && parsedOrder > 0 ? parsedOrder : undefined,
+      });
+      setEditingPolicyProposalId(null);
+      await loadDashboard();
+    } catch {
+      setError('정책 페이지 반영에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setReflectingPolicyProposalId(null);
     }
   };
 
@@ -1626,6 +1736,21 @@ export default function Admin() {
                         <p className="text-xs text-slate-500">{formatDate(item.createdAt)}</p>
                         <button
                           type="button"
+                          onClick={() => handleStartEditPolicyProposal(item)}
+                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                        >
+                          수정
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleReflectPolicyProposal(item)}
+                          disabled={reflectingPolicyProposalId === item.id}
+                          className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                        >
+                          {reflectingPolicyProposalId === item.id ? '반영 중' : '정책반영'}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleDeletePolicyProposal(item.id)}
                           disabled={deletingPolicyId === item.id}
                           className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
@@ -1636,6 +1761,68 @@ export default function Admin() {
                       </div>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">{maskName(item.proposer)} · {maskPhone(item.phone)}</p>
+                    {item.reflectedAt ? (
+                      <p className="mt-1 text-xs text-emerald-700">정책반영 완료: {formatDate(item.reflectedAt)}</p>
+                    ) : null}
+                    {editingPolicyProposalId === item.id ? (
+                      <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={policyProposalDrafts[item.id]?.category ?? ''}
+                            onChange={(e) => handleChangePolicyProposalDraft(item.id, 'category', e.target.value)}
+                            placeholder="분류 (예: 기초학력)"
+                            className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                          />
+                          <input
+                            type="number"
+                            min={1}
+                            value={policyProposalDrafts[item.id]?.order ?? ''}
+                            onChange={(e) => handleChangePolicyProposalDraft(item.id, 'order', e.target.value)}
+                            placeholder="노출 순서 (숫자)"
+                            className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={policyProposalDrafts[item.id]?.title ?? ''}
+                          onChange={(e) => handleChangePolicyProposalDraft(item.id, 'title', e.target.value)}
+                          placeholder="정책 제목"
+                          className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                        />
+                        <input
+                          type="text"
+                          value={policyProposalDrafts[item.id]?.desc ?? ''}
+                          onChange={(e) => handleChangePolicyProposalDraft(item.id, 'desc', e.target.value)}
+                          placeholder="정책 요약"
+                          className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                        />
+                        <textarea
+                          rows={4}
+                          value={policyProposalDrafts[item.id]?.content ?? ''}
+                          onChange={(e) => handleChangePolicyProposalDraft(item.id, 'content', e.target.value)}
+                          placeholder="정책 상세 내용"
+                          className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm resize-none"
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingPolicyProposalId(null)}
+                            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                          >
+                            취소
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSavePolicyProposalEdit(item.id)}
+                            disabled={savingPolicyProposalId === item.id}
+                            className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+                          >
+                            {savingPolicyProposalId === item.id ? '수정 저장 중' : '수정 저장'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                     <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{item.content || '-'}</p>
                   </div>
                 ))

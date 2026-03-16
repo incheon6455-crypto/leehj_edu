@@ -51,6 +51,11 @@ export interface PolicyProposalItem {
   title: string;
   content: string;
   createdAt: string;
+  category?: string;
+  desc?: string;
+  order?: number;
+  reflectedPolicyId?: string;
+  reflectedAt?: string;
 }
 
 export interface ContactInquiryItem {
@@ -1221,6 +1226,17 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         title: String(data.title ?? ''),
         content: String(data.content ?? ''),
         createdAt: safeDate(data.createdAt),
+        category: String(data.category ?? ''),
+        desc: String(data.desc ?? ''),
+        order: Number(data.order ?? 0),
+        reflectedPolicyId: String(data.reflectedPolicyId ?? ''),
+        reflectedAt:
+          typeof data.reflectedAt === 'string' && data.reflectedAt
+            ? data.reflectedAt
+            : data.reflectedAt && typeof data.reflectedAt === 'object' && 'toDate' in data.reflectedAt &&
+              typeof (data.reflectedAt as { toDate?: () => Date }).toDate === 'function'
+              ? (data.reflectedAt as { toDate: () => Date }).toDate().toISOString()
+              : '',
       } satisfies PolicyProposalItem;
     });
     const supportMembers: MemberManagementItem[] = supportMembersSnap.docs.map((docItem) => {
@@ -1377,6 +1393,101 @@ export async function submitPolicyProposal(payload: { proposer: string; phone: s
   }
 }
 
+export async function updatePolicyProposal(
+  proposalId: string,
+  payload: {
+    title: string;
+    content: string;
+    category?: string;
+    desc?: string;
+    order?: number;
+  }
+) {
+  if (!db || !isFirebaseConfigured) return;
+  const title = String(payload.title || '').trim();
+  const content = String(payload.content || '').trim();
+  if (!title || !content) throw new Error('proposal-required');
+
+  try {
+    const nextPayload: Record<string, unknown> = {
+      title,
+      content,
+      updatedAt: serverTimestamp(),
+    };
+    if (typeof payload.category === 'string') {
+      nextPayload.category = payload.category.trim();
+    }
+    if (typeof payload.desc === 'string') {
+      nextPayload.desc = payload.desc.trim();
+    }
+    if (Number.isFinite(payload.order)) {
+      nextPayload.order = Number(payload.order);
+    }
+    await updateDoc(doc(db, 'policy_proposals', proposalId), nextPayload);
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
+export async function reflectPolicyProposalToCatalog(
+  proposalId: string,
+  payload: {
+    category: string;
+    title: string;
+    desc: string;
+    content: string;
+    order?: number;
+  }
+) {
+  if (!db || !isFirebaseConfigured) return null;
+  const category = String(payload.category || '').trim();
+  const title = String(payload.title || '').trim();
+  const desc = String(payload.desc || '').trim();
+  const content = String(payload.content || '').trim();
+  if (!category || !title || !desc || !content) throw new Error('policy-required');
+
+  try {
+    let order = Number(payload.order ?? 0);
+    if (!Number.isFinite(order) || order < 1) {
+      const maxOrderSnap = await getDocs(query(collection(db, 'policies'), orderBy('order', 'desc'), limit(1)));
+      const maxOrder = maxOrderSnap.empty
+        ? 0
+        : Number((maxOrderSnap.docs[0]?.data() as Record<string, unknown>).order ?? 0);
+      order = Math.max(1, maxOrder + 1);
+    }
+
+    const policyId = `proposal-${proposalId}`;
+    await setDoc(
+      doc(db, 'policies', policyId),
+      {
+        category,
+        title,
+        desc,
+        content,
+        order,
+        sourceProposalId: proposalId,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    await updateDoc(doc(db, 'policy_proposals', proposalId), {
+      category,
+      title,
+      desc,
+      content,
+      order,
+      reflectedPolicyId: policyId,
+      reflectedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    return policyId;
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function getPolicyProposals(): Promise<PolicyProposalItem[]> {
   if (!db || !isFirebaseConfigured) return [];
   try {
@@ -1391,6 +1502,17 @@ export async function getPolicyProposals(): Promise<PolicyProposalItem[]> {
         title: String(data.title ?? ''),
         content: String(data.content ?? ''),
         createdAt: safeDate(data.createdAt),
+        category: String(data.category ?? ''),
+        desc: String(data.desc ?? ''),
+        order: Number(data.order ?? 0),
+        reflectedPolicyId: String(data.reflectedPolicyId ?? ''),
+        reflectedAt:
+          typeof data.reflectedAt === 'string' && data.reflectedAt
+            ? data.reflectedAt
+            : data.reflectedAt && typeof data.reflectedAt === 'object' && 'toDate' in data.reflectedAt &&
+              typeof (data.reflectedAt as { toDate?: () => Date }).toDate === 'function'
+              ? (data.reflectedAt as { toDate: () => Date }).toDate().toISOString()
+              : '',
       } satisfies PolicyProposalItem;
     });
   } catch {
