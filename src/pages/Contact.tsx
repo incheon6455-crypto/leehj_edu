@@ -84,7 +84,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 mb-1">전화 번호</h3>
-                  <p className="text-slate-600 text-sm">010-****-****</p>
+                  <p className="text-slate-600 text-sm hidden" aria-hidden="true">010-****-****</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
@@ -111,7 +111,7 @@ export default function Contact() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="rounded-xl bg-white p-4 border border-slate-100">
                   <p className="text-slate-400 mb-1">문의 전화</p>
-                  <p className="font-bold text-slate-800">010-****-****</p>
+                  <p className="font-bold text-slate-800 hidden" aria-hidden="true">010-****-****</p>
                 </div>
                 <div className="rounded-xl bg-white p-4 border border-slate-100">
                   <p className="text-slate-400 mb-1">후원 계좌안내</p>
