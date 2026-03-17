@@ -798,13 +798,12 @@ export async function getStats() {
     const postsRef = collection(db, 'posts');
     const eventsRef = collection(db, 'events');
     const supportRef = collection(db, 'support_messages');
-    const visitorsTodayRef = query(collection(db, 'visitors'), where('cycleKey', '==', cycleKey));
 
     const [postsCountResult, eventsCountResult, supportCountResult, visitorsTodayResult, visitorsTotalResult] = await Promise.allSettled([
       getCountFromServer(postsRef),
       getDocs(eventsRef),
       getCountFromServer(supportRef),
-      getCountFromServer(visitorsTodayRef),
+      getVisitorCounterTotal(cycleKey, true),
       getVisitorLifetimeTotal(),
     ]);
 
@@ -821,7 +820,10 @@ export async function getStats() {
           }, 0)
         : 0;
     const supportCount = supportCountResult.status === 'fulfilled' ? supportCountResult.value.data().count : 0;
-    const visitorsToday = visitorsTodayResult.status === 'fulfilled' ? visitorsTodayResult.value.data().count : 0;
+    const visitorsToday =
+      visitorsTodayResult.status === 'fulfilled'
+        ? parseNonNegativeNumber(visitorsTodayResult.value, 0)
+        : 0;
     const visitorsTotal =
       visitorsTotalResult.status === 'fulfilled'
         ? visitorsTotalResult.value
@@ -887,10 +889,15 @@ export async function incrementVisitCount(cycleKey: string) {
       });
     });
 
-    await addDoc(collection(db, 'visitors'), {
-      cycleKey,
-      createdAt: serverTimestamp(),
-    });
+    try {
+      await addDoc(collection(db, 'visitors'), {
+        cycleKey,
+        createdAt: serverTimestamp(),
+      });
+    } catch (error) {
+      // Dashboard hourly trend uses visitors logs; counter consistency has priority.
+      console.error('incrementVisitCount visitors log write failed', error);
+    }
     return true;
   } catch (error) {
     // Visitor counter must not block UI.
@@ -1125,7 +1132,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       policyProposalsCountSnap,
       supportCountSnap,
       contactsCountSnap,
-      visitorsCountSnap,
       visitorsTrendSnap,
       recentPostsSnap,
       upcomingEventsSnap,
@@ -1142,7 +1148,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       getCountFromServer(proposalsRef),
       getCountFromServer(supportRef),
       contactsCountPromise,
-      getCountFromServer(visitorsQuery),
       getDocs(visitorsQuery),
       getDocs(query(postsRef, orderBy('date', 'desc'))),
       getDocs(query(eventsRef, orderBy('date', 'asc'))),
@@ -1315,7 +1320,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         policyProposals: policyProposalsCountSnap.data().count,
         supportMessages: supportCountSnap.data().count,
         contacts: contactsCountSnap ? contactsCountSnap.data().count : recentContacts.length,
-        visitorsToday: Number(visitorsTodayTotal) || visitorsCountSnap.data().count,
+        visitorsToday: parseNonNegativeNumber(visitorsTodayTotal, 0),
       },
       visitorTrend,
       dailyVisitorTrend,
