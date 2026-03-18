@@ -66,6 +66,7 @@ const HERO_IMAGE_SLOT_COUNT = 4;
 const HERO_IMAGE_MAX_BYTES = 850 * 1024;
 const SMS_MAX_RECIPIENTS_PER_REQUEST = 20;
 const SMS_MAX_MESSAGE_BYTES = 90;
+const MEMBERS_PER_PAGE = 20;
 
 function maskName(name: string) {
   if (name.length < 2) return name;
@@ -174,6 +175,7 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+  const [currentMemberPage, setCurrentMemberPage] = useState(1);
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<MemberManagementItem | null>(null);
   const [savingMember, setSavingMember] = useState(false);
@@ -347,6 +349,12 @@ export default function Admin() {
     setSelectedMemberIds((prev) => prev.filter((id) => dashboard.members.some((member) => member.id === id)));
   }, [dashboard.members]);
 
+  const totalMemberPages = Math.max(1, Math.ceil(dashboard.members.length / MEMBERS_PER_PAGE));
+
+  useEffect(() => {
+    setCurrentMemberPage((prev) => Math.min(prev, totalMemberPages));
+  }, [totalMemberPages]);
+
   const metrics = useMemo(
     () => [
       { label: '오늘 방문 로그(00시 기준)', value: dashboard.totals.visitorsToday, icon: Users, color: 'text-burgundy' },
@@ -377,7 +385,10 @@ export default function Admin() {
     return { width, height, points };
   }, [dashboard.dailyVisitorTrend]);
 
-  const allMembersSelected = dashboard.members.length > 0 && selectedMemberIds.length === dashboard.members.length;
+  const currentMemberPageStartIndex = (currentMemberPage - 1) * MEMBERS_PER_PAGE;
+  const paginatedMembers = dashboard.members.slice(currentMemberPageStartIndex, currentMemberPageStartIndex + MEMBERS_PER_PAGE);
+  const allMembersSelected =
+    paginatedMembers.length > 0 && paginatedMembers.every((member) => selectedMemberIds.includes(member.id));
   const selectedMembers = dashboard.members.filter((member) => selectedMemberIds.includes(member.id));
   const selectedSmsTargets = selectedMembers
     .map((member, index) => ({
@@ -1262,32 +1273,32 @@ export default function Admin() {
             <div className="overflow-hidden rounded-xl border border-slate-200">
               <div className="grid grid-cols-5 bg-slate-50 text-sm font-bold text-slate-700">
                 <div className="px-4 py-2 border-r border-slate-200 flex items-center justify-center">
-                  <input
-                    type="checkbox"
-                    checked={allMembersSelected}
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        setSelectedMemberIds(dashboard.members.map((member) => member.id));
-                      } else {
-                        setSelectedMemberIds([]);
-                      }
-                    }}
-                    className="h-4 w-4 accent-burgundy cursor-pointer"
-                    aria-label="전체 회원 선택"
-                  />
+	                  <input
+	                    type="checkbox"
+	                    checked={allMembersSelected}
+	                    onChange={(event) => {
+	                      if (event.target.checked) {
+	                        setSelectedMemberIds((prev) => Array.from(new Set([...prev, ...paginatedMembers.map((member) => member.id)])));
+	                      } else {
+	                        setSelectedMemberIds((prev) => prev.filter((id) => !paginatedMembers.some((member) => member.id === id)));
+	                      }
+	                    }}
+	                    className="h-4 w-4 accent-burgundy cursor-pointer"
+	                    aria-label="전체 회원 선택"
+	                  />
                 </div>
                 <div className="px-4 py-2 border-r border-slate-200">이름</div>
                 <div className="px-4 py-2 border-r border-slate-200">전화번호</div>
                 <div className="px-4 py-2 border-r border-slate-200">주소</div>
                 <div className="px-4 py-2">유형</div>
               </div>
-              {dashboard.members.length === 0 ? (
-                <div className="px-4 py-6 text-sm text-slate-400">등록된 회원 정보가 없습니다.</div>
-              ) : (
-                dashboard.members.map((member, index) => {
-                  const isSelected = selectedMemberIds.includes(member.id);
-                  return (
-                  <div
+	              {dashboard.members.length === 0 ? (
+	                <div className="px-4 py-6 text-sm text-slate-400">등록된 회원 정보가 없습니다.</div>
+	              ) : (
+	                paginatedMembers.map((member, index) => {
+	                  const isSelected = selectedMemberIds.includes(member.id);
+	                  return (
+	                  <div
                     key={member.id}
                     className={`grid grid-cols-5 border-t text-sm transition-colors ${
                       isSelected ? 'border-slate-300 text-slate-900' : 'border-slate-100'
@@ -1303,9 +1314,9 @@ export default function Admin() {
                           isSelected ? 'border-slate-400 bg-slate-300 text-slate-800' : 'border-slate-200 bg-slate-100 text-slate-600'
                         }`}
                         aria-label={`${member.name} 순번`}
-                      >
-                        {index + 1}
-                      </span>
+	                      >
+	                        {currentMemberPageStartIndex + index + 1}
+	                      </span>
                       <button
                         type="button"
                         onClick={() => handleDeleteMember(member.id)}
@@ -1360,12 +1371,35 @@ export default function Admin() {
                     <div className={isSelected ? 'px-4 py-2 bg-slate-200 text-slate-800' : 'px-4 py-2 bg-white text-slate-700'}>
                       {member.type}
                     </div>
-                  </div>
-                  );
-                })
-              )}
-            </div>
-            </section>
+	                  </div>
+	                  );
+	                })
+	              )}
+	            </div>
+	            {dashboard.members.length > MEMBERS_PER_PAGE && (
+	              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+	                {Array.from({ length: totalMemberPages }, (_, index) => {
+	                  const page = index + 1;
+	                  const isActive = page === currentMemberPage;
+	                  return (
+	                    <button
+	                      key={page}
+	                      type="button"
+	                      onClick={() => setCurrentMemberPage(page)}
+	                      className={`min-w-9 rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors ${
+	                        isActive
+	                          ? 'border-burgundy bg-burgundy text-white'
+	                          : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+	                      }`}
+	                      aria-label={`${page}페이지`}
+	                    >
+	                      {page}
+	                    </button>
+	                  );
+	                })}
+	              </div>
+	            )}
+	            </section>
         </div>
       </div>
 
