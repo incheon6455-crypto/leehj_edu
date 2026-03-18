@@ -20,3 +20,22 @@
   @apply prose prose-slate max-w-none;
   @apply prose-headings:text-burgundy prose-a:text-burgundy;
 }
+
+.support-messages-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 162, 39, 0.85) rgba(255, 255, 255, 0.16);
+}
+
+.support-messages-scroll::-webkit-scrollbar {
+  width: 12px;
+}
+
+.support-messages-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.support-messages-scroll::-webkit-scrollbar-thumb {
+  background: rgba(201, 162, 39, 0.85);
+  border-radius: 9999px;
+  border: 2px solid rgba(109, 0, 26, 0.28);
+}

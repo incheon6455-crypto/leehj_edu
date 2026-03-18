@@ -465,7 +465,7 @@ export default function Home() {
                 </div>
                 <ul
                   className={
-                    supportListNeedsScroll ? 'max-h-[660px] overflow-y-scroll pr-1' : ''
+                    supportListNeedsScroll ? 'support-messages-scroll max-h-[660px] overflow-y-scroll pr-1' : ''
                   }
                   style={
                     supportListNeedsScroll
