@@ -18,6 +18,8 @@ import heroImage3 from '../../Assets/IMG_7613.jpg';
 import heroImage4 from '../../Assets/IMG_7614.jpg';
 
 const DEFAULT_HERO_IMAGES = [leftBackgroundImage, heroImage2, heroImage3, heroImage4];
+const SUPPORT_VISIBLE_ROWS = 15;
+const SUPPORT_ROW_HEIGHT_PX = 44;
 
 const DEFAULT_SUPPORT_MESSAGES = [
   { id: 'default-1', content: "아이들을 위한 진심이 느껴집니다. 끝까지 응원하겠습니다.", name: "김민수", phone: "010-1234-5678" },
@@ -177,6 +179,7 @@ export default function Home() {
   const [supportSubmitError, setSupportSubmitError] = useState('');
   const submitFallbackTimerRef = useRef<number | null>(null);
   const selectedPostDetailHtml = selectedPost ? buildPostDetailHtml(selectedPost.content) : '';
+  const supportListNeedsScroll = supportMessages.length > SUPPORT_VISIBLE_ROWS;
 
   useEffect(() => {
     getPosts()
@@ -454,13 +457,22 @@ export default function Home() {
                   응원글 쓰기
                 </button>
               </div>
-              <div className="bg-white/10 border border-white/20 backdrop-blur-sm border-l-4 border-gold shadow-lg shadow-black/20 overflow-hidden">
+              <div className="bg-white/10 border border-white/20 backdrop-blur-sm border-l-4 border-gold shadow-lg shadow-black/20">
                 <div className="grid grid-cols-[minmax(0,1fr)_96px_132px] bg-white/5 border-b border-white/15 text-xs font-bold text-gold/90">
                   <span className="px-4 py-2 truncate">내용</span>
                   <span className="px-3 py-2 border-l border-white/20 text-center truncate">이름</span>
                   <span className="px-3 py-2 border-l border-white/20 text-center truncate">전화번호</span>
                 </div>
-                <ul className={supportMessages.length > 15 ? 'max-h-[660px] overflow-y-auto' : ''}>
+                <ul
+                  className={
+                    supportListNeedsScroll ? 'max-h-[660px] overflow-y-scroll pr-1' : ''
+                  }
+                  style={
+                    supportListNeedsScroll
+                      ? { maxHeight: `${SUPPORT_VISIBLE_ROWS * SUPPORT_ROW_HEIGHT_PX}px`, scrollbarGutter: 'stable' }
+                      : undefined
+                  }
+                >
                   {supportMessages.map((message) => (
                     <li
                       key={message.id}
