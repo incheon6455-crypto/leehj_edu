@@ -974,17 +974,36 @@ export async function deleteSupportMessage(messageId: string) {
 export async function getSupportMessages(): Promise<SupportMessageItem[]> {
   if (!db || !isFirebaseConfigured) return [];
   try {
-    const snap = await getDocs(query(collection(db, 'support_messages'), orderBy('createdAt', 'desc'), limit(30)));
+    const snap = await getDocs(query(collection(db, 'support_messages'), limit(200)));
     if (snap.empty) return [];
-    return snap.docs.map((docItem) => {
+    const items = snap.docs.map((docItem) => {
       const data = docItem.data() as Record<string, unknown>;
+      const createdAtValue = data.createdAt;
+      let createdAtIso = '';
+      if (typeof createdAtValue === 'string' && createdAtValue) {
+        createdAtIso = createdAtValue;
+      } else if (
+        createdAtValue &&
+        typeof createdAtValue === 'object' &&
+        'toDate' in createdAtValue &&
+        typeof createdAtValue.toDate === 'function'
+      ) {
+        createdAtIso = createdAtValue.toDate().toISOString();
+      }
       return {
         id: docItem.id,
         name: String(data.name ?? ''),
         phone: String(data.phone ?? ''),
         content: String(data.content ?? ''),
-        createdAt: safeDate(data.createdAt),
+        createdAt: createdAtIso || new Date(0).toISOString(),
       } satisfies SupportMessageItem;
+    });
+
+    return items.sort((a, b) => {
+      const aTime = Number.isNaN(Date.parse(a.createdAt)) ? 0 : Date.parse(a.createdAt);
+      const bTime = Number.isNaN(Date.parse(b.createdAt)) ? 0 : Date.parse(b.createdAt);
+      if (bTime !== aTime) return bTime - aTime;
+      return b.id.localeCompare(a.id);
     });
   } catch {
     return [];
