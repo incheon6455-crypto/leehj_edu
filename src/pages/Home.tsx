@@ -455,16 +455,16 @@ export default function Home() {
                 </button>
               </div>
               <div className="bg-white/10 border border-white/20 backdrop-blur-sm border-l-4 border-gold shadow-lg shadow-black/20 overflow-hidden">
-                <ul>
-                  <li className="grid grid-cols-[minmax(0,1fr)_96px_132px] bg-white/5 border-b border-white/15 text-xs font-bold text-gold/90">
-                    <span className="px-4 py-2 truncate">내용</span>
-                    <span className="px-3 py-2 border-l border-white/20 text-center truncate">이름</span>
-                    <span className="px-3 py-2 border-l border-white/20 text-center truncate">전화번호</span>
-                  </li>
+                <div className="grid grid-cols-[minmax(0,1fr)_96px_132px] bg-white/5 border-b border-white/15 text-xs font-bold text-gold/90">
+                  <span className="px-4 py-2 truncate">내용</span>
+                  <span className="px-3 py-2 border-l border-white/20 text-center truncate">이름</span>
+                  <span className="px-3 py-2 border-l border-white/20 text-center truncate">전화번호</span>
+                </div>
+                <ul className={supportMessages.length > 15 ? 'max-h-[660px] overflow-y-auto' : ''}>
                   {supportMessages.map((message) => (
                     <li
                       key={message.id}
-                      className="grid grid-cols-[minmax(0,1fr)_96px_132px] border-b border-white/10 last:border-b-0 text-sm text-white/90 cursor-pointer hover:bg-white/10 transition-colors"
+                      className="grid h-11 grid-cols-[minmax(0,1fr)_96px_132px] border-b border-white/10 last:border-b-0 text-sm text-white/90 cursor-pointer hover:bg-white/10 transition-colors"
                       onClick={() => setSelectedSupportMessage(message)}
                       role="button"
                       tabIndex={0}
@@ -475,9 +475,9 @@ export default function Home() {
                         }
                       }}
                     >
-                      <span className="px-4 py-3 truncate">{message.content}</span>
-                      <span className="px-3 py-3 border-l border-white/20 text-center truncate">{maskName(message.name)}</span>
-                      <span className="px-3 py-3 border-l border-white/20 text-center truncate">{maskPhone(message.phone)}</span>
+                      <span className="px-4 truncate self-center">{message.content}</span>
+                      <span className="px-3 border-l border-white/20 text-center truncate self-center">{maskName(message.name)}</span>
+                      <span className="px-3 border-l border-white/20 text-center truncate self-center">{maskPhone(message.phone)}</span>
                     </li>
                   ))}
                 </ul>
