@@ -20,6 +20,7 @@ import heroImage4 from '../../Assets/IMG_7614.jpg';
 const DEFAULT_HERO_IMAGES = [leftBackgroundImage, heroImage2, heroImage3, heroImage4];
 const SUPPORT_VISIBLE_ROWS = 15;
 const SUPPORT_ROW_HEIGHT_PX = 44;
+const SUPPORT_SCROLL_THUMB_MIN_HEIGHT = 28;
 
 const DEFAULT_SUPPORT_MESSAGES = [
   { id: 'default-1', content: "아이들을 위한 진심이 느껴집니다. 끝까지 응원하겠습니다.", name: "김민수", phone: "010-1234-5678" },
@@ -178,8 +179,10 @@ export default function Home() {
   const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
   const [supportSubmitError, setSupportSubmitError] = useState('');
   const submitFallbackTimerRef = useRef<number | null>(null);
+  const supportListRef = useRef<HTMLUListElement | null>(null);
   const selectedPostDetailHtml = selectedPost ? buildPostDetailHtml(selectedPost.content) : '';
   const supportListNeedsScroll = supportMessages.length > SUPPORT_VISIBLE_ROWS;
+  const [supportScrollMetrics, setSupportScrollMetrics] = useState({ top: 0, client: 0, scroll: 0 });
 
   useEffect(() => {
     getPosts()
@@ -259,6 +262,38 @@ export default function Home() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!supportListNeedsScroll) {
+      setSupportScrollMetrics({ top: 0, client: 0, scroll: 0 });
+      return;
+    }
+    const node = supportListRef.current;
+    if (!node) return;
+
+    const syncSupportScrollMetrics = () => {
+      setSupportScrollMetrics({
+        top: node.scrollTop,
+        client: node.clientHeight,
+        scroll: node.scrollHeight,
+      });
+    };
+
+    syncSupportScrollMetrics();
+    window.addEventListener('resize', syncSupportScrollMetrics);
+    return () => window.removeEventListener('resize', syncSupportScrollMetrics);
+  }, [supportListNeedsScroll, supportMessages.length]);
+
+  const supportScrollableDistance = Math.max(1, supportScrollMetrics.scroll - supportScrollMetrics.client);
+  const supportThumbHeight = supportListNeedsScroll
+    ? Math.max(
+        SUPPORT_SCROLL_THUMB_MIN_HEIGHT,
+        (supportScrollMetrics.client * supportScrollMetrics.client) / Math.max(1, supportScrollMetrics.scroll)
+      )
+    : 0;
+  const supportThumbTop = supportListNeedsScroll
+    ? (supportScrollMetrics.top / supportScrollableDistance) * Math.max(0, supportScrollMetrics.client - supportThumbHeight)
+    : 0;
 
   const handleSupportSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -463,36 +498,56 @@ export default function Home() {
                   <span className="px-3 py-2 border-l border-white/20 text-center truncate">이름</span>
                   <span className="px-3 py-2 border-l border-white/20 text-center truncate">전화번호</span>
                 </div>
-                <ul
-                  className={
-                    supportListNeedsScroll ? 'support-messages-scroll max-h-[660px] overflow-y-scroll pr-1' : ''
-                  }
-                  style={
-                    supportListNeedsScroll
-                      ? { maxHeight: `${SUPPORT_VISIBLE_ROWS * SUPPORT_ROW_HEIGHT_PX}px`, scrollbarGutter: 'stable' }
-                      : undefined
-                  }
-                >
-                  {supportMessages.map((message) => (
-                    <li
-                      key={message.id}
-                      className="grid h-11 grid-cols-[minmax(0,1fr)_96px_132px] border-b border-white/10 last:border-b-0 text-sm text-white/90 cursor-pointer hover:bg-white/10 transition-colors"
-                      onClick={() => setSelectedSupportMessage(message)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setSelectedSupportMessage(message);
-                        }
-                      }}
-                    >
-                      <span className="px-4 truncate self-center">{message.content}</span>
-                      <span className="px-3 border-l border-white/20 text-center truncate self-center">{maskName(message.name)}</span>
-                      <span className="px-3 border-l border-white/20 text-center truncate self-center">{maskPhone(message.phone)}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="relative">
+                  <ul
+                    ref={supportListRef}
+                    className={
+                      supportListNeedsScroll ? 'support-messages-scroll max-h-[660px] overflow-y-scroll pr-3' : ''
+                    }
+                    style={
+                      supportListNeedsScroll
+                        ? { maxHeight: `${SUPPORT_VISIBLE_ROWS * SUPPORT_ROW_HEIGHT_PX}px`, scrollbarGutter: 'stable' }
+                        : undefined
+                    }
+                    onScroll={() => {
+                      const node = supportListRef.current;
+                      if (!node) return;
+                      setSupportScrollMetrics({
+                        top: node.scrollTop,
+                        client: node.clientHeight,
+                        scroll: node.scrollHeight,
+                      });
+                    }}
+                  >
+                    {supportMessages.map((message) => (
+                      <li
+                        key={message.id}
+                        className="grid h-11 grid-cols-[minmax(0,1fr)_96px_132px] border-b border-white/10 last:border-b-0 text-sm text-white/90 cursor-pointer hover:bg-white/10 transition-colors"
+                        onClick={() => setSelectedSupportMessage(message)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            setSelectedSupportMessage(message);
+                          }
+                        }}
+                      >
+                        <span className="px-4 truncate self-center">{message.content}</span>
+                        <span className="px-3 border-l border-white/20 text-center truncate self-center">{maskName(message.name)}</span>
+                        <span className="px-3 border-l border-white/20 text-center truncate self-center">{maskPhone(message.phone)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {supportListNeedsScroll && (
+                    <div className="pointer-events-none absolute inset-y-0 right-0 w-2 bg-white/20">
+                      <div
+                        className="absolute left-0 right-0 rounded-full bg-gold/90"
+                        style={{ height: `${supportThumbHeight}px`, transform: `translateY(${supportThumbTop}px)` }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
