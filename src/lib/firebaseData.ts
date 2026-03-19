@@ -271,6 +271,15 @@ function normalizeFirestoreError(error: unknown) {
   return new Error('Firebase request failed');
 }
 
+function isPermissionLikeErrorMessage(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('permission-denied') ||
+    normalized.includes('insufficient permissions') ||
+    normalized.includes('missing or insufficient permissions')
+  );
+}
+
 export function getVisitorCycleKey(now: Date = new Date()) {
   const [year, month, day] = new Intl.DateTimeFormat('sv-SE', {
     timeZone: 'Asia/Seoul',
@@ -752,7 +761,7 @@ export async function createPressReport(payload: {
         image_url: payload.image_url,
         date: serverTimestamp(),
       }),
-      7000,
+      12000,
       'sdk-timeout'
     );
 
@@ -769,13 +778,23 @@ export async function createPressReport(payload: {
     } satisfies PressReportItem;
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
+    if (isPermissionLikeErrorMessage(message)) {
+      throw normalizeFirestoreError(error);
+    }
+
     const canFallback =
       message.includes('sdk-timeout') ||
       message.includes('unavailable') ||
       message.includes('network') ||
-      message.includes('Failed to fetch');
+      message.includes('Failed to fetch') ||
+      message.includes('deadline-exceeded') ||
+      message.includes('timeout') ||
+      message.includes('internal') ||
+      message.includes('aborted') ||
+      message.includes('resource-exhausted') ||
+      message.includes('unknown');
 
-    if (canFallback) {
+    if (canFallback || message) {
       try {
         return await createPressReportViaRest(payload);
       } catch (restError) {
