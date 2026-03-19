@@ -718,7 +718,7 @@ export default function Events() {
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="group text-left w-full bg-white overflow-hidden rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all flex flex-col"
+                className="group text-left w-full bg-white overflow-hidden rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all flex flex-col cursor-pointer"
               >
                 <div className="aspect-[2/1] overflow-hidden bg-slate-100">
                   <img
