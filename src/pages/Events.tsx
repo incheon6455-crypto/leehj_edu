@@ -26,6 +26,15 @@ function isNewsLikeUrl(url: string) {
       host.includes('press') ||
       host.includes('journal') ||
       host.includes('times') ||
+      host.includes('daum.net') ||
+      host.includes('naver.com') ||
+      host.includes('chosun.com') ||
+      host.includes('joins.com') ||
+      host.includes('donga.com') ||
+      host.includes('hani.co.kr') ||
+      host.includes('khan.co.kr') ||
+      host.includes('yna.co.kr') ||
+      /^\/v\/\d+/.test(path) ||
       path.includes('/news/') ||
       path.includes('/article')
     );
@@ -370,8 +379,9 @@ function sanitizeRichHtml(rawHtml: string) {
 }
 
 function sanitizeDetailContent(rawHtml: string) {
+  const transformed = transformContentWithVideoEmbeds(rawHtml);
   const wrapper = document.createElement('div');
-  wrapper.innerHTML = sanitizeRichHtml(rawHtml);
+  wrapper.innerHTML = sanitizeRichHtml(transformed.html);
   const anchors = Array.from(wrapper.querySelectorAll('a[href]'));
   anchors.forEach((anchor) => {
     if (anchor.closest('[data-article-embed="true"]')) return;
