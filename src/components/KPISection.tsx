@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, useSpring, useTransform } from 'motion/react';
 import { Users, FileText, Calendar } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import {
   ADMIN_SESSION_STORAGE_KEY,
@@ -34,6 +35,7 @@ function isReloadNavigation() {
 }
 
 export function KPISection() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({ visitorsTotal: 0, visitorsToday: 0, posts: 0, events: 0 });
 
   useEffect(() => {
@@ -97,8 +99,8 @@ export function KPISection() {
   const cards = [
     { label: '총 누적 방문자', value: stats.visitorsTotal, icon: Users, color: 'text-burgundy' },
     { label: '오늘 방문자', value: stats.visitorsToday, icon: Users, color: 'text-rose-600' },
-    { label: '게시물', value: stats.posts, icon: FileText, color: 'text-blue-600' },
-    { label: '예정된 행사', value: stats.events, icon: Calendar, color: 'text-emerald-600' },
+    { label: '게시물', value: stats.posts, icon: FileText, color: 'text-blue-600', path: '/posts' },
+    { label: '언론보도', value: stats.events, icon: Calendar, color: 'text-emerald-600', path: '/events' },
   ];
 
   return (
@@ -110,26 +112,47 @@ export function KPISection() {
       className="bg-white/90 backdrop-blur-md p-5 md:p-6 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05),0_8px_10px_-6px_rgba(0,0,0,0.05)] border border-burgundy/20"
     >
       <div className="grid grid-cols-4 md:grid-cols-4 md:divide-x-0 divide-y-0">
-        {cards.map((card, i) => (
-          <div
-            key={card.label}
-            className={cn(
-              "flex items-center justify-center gap-4 py-4 md:py-1 md:px-6 max-md:flex-col max-md:gap-0.5 max-md:py-1 max-md:px-1",
-              i === 0 && "pt-0 md:pl-0",
-              i === cards.length - 1 && "pb-0 md:pr-0"
-            )}
-          >
-            <div className={cn("p-3 bg-slate-500/5 max-md:p-1.5", card.color)}>
-              <card.icon size={16} className="md:w-[22px] md:h-[22px]" />
+        {cards.map((card, i) => {
+          const cardClassName = cn(
+            "flex items-center justify-center gap-4 py-4 md:py-1 md:px-6 max-md:flex-col max-md:gap-0.5 max-md:py-1 max-md:px-1",
+            i === 0 && "pt-0 md:pl-0",
+            i === cards.length - 1 && "pb-0 md:pr-0",
+            card.path && "cursor-pointer hover:bg-slate-50 transition-colors rounded-lg"
+          );
+
+          const cardContent = (
+            <>
+              <div className={cn("p-3 bg-slate-500/5 max-md:p-1.5", card.color)}>
+                <card.icon size={16} className="md:w-[22px] md:h-[22px]" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-0.5 max-md:text-[9px] max-md:leading-tight max-md:text-center">{card.label}</p>
+                <p className="text-2xl font-bold text-slate-900 max-md:text-base max-md:leading-none max-md:text-center">
+                  <CountUp value={card.value} />
+                </p>
+              </div>
+            </>
+          );
+
+          if (card.path) {
+            return (
+              <button
+                key={card.label}
+                type="button"
+                onClick={() => navigate(card.path as string)}
+                className={cardClassName}
+              >
+                {cardContent}
+              </button>
+            );
+          }
+
+          return (
+            <div key={card.label} className={cardClassName}>
+              {cardContent}
             </div>
-            <div>
-              <p className="text-xs font-medium text-slate-500 mb-0.5 max-md:text-[9px] max-md:leading-tight max-md:text-center">{card.label}</p>
-              <p className="text-2xl font-bold text-slate-900 max-md:text-base max-md:leading-none max-md:text-center">
-                <CountUp value={card.value} />
-              </p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </motion.div>
   );

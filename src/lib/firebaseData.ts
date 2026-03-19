@@ -949,37 +949,26 @@ export async function markEventAsPast(eventId: string) {
 
 export async function getStats() {
   if (!db || !isFirebaseConfigured) {
-    const [posts, events] = await Promise.all([getPosts(), getEvents()]);
-    const upcomingEvents = events.filter((item) => !isPastEventByPageRule(item));
-    return { posts: posts.length, events: upcomingEvents.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
+    const [posts, pressReports] = await Promise.all([getPosts(), getPressReports()]);
+    return { posts: posts.length, events: pressReports.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
   }
 
   try {
     const cycleKey = getVisitorCycleKey();
     const postsRef = collection(db, 'posts');
-    const eventsRef = collection(db, 'events');
+    const pressReportsRef = collection(db, 'press_reports');
     const supportRef = collection(db, 'support_messages');
 
-    const [postsCountResult, eventsCountResult, supportCountResult, visitorsTodayResult, visitorsTotalResult] = await Promise.allSettled([
+    const [postsCountResult, pressReportsCountResult, supportCountResult, visitorsTodayResult, visitorsTotalResult] = await Promise.allSettled([
       getCountFromServer(postsRef),
-      getDocs(eventsRef),
+      getCountFromServer(pressReportsRef),
       getCountFromServer(supportRef),
       getVisitorCounterTotal(cycleKey, true),
       getVisitorLifetimeTotal(),
     ]);
 
     const postsCount = postsCountResult.status === 'fulfilled' ? postsCountResult.value.data().count : 0;
-    const eventsCount =
-      eventsCountResult.status === 'fulfilled'
-        ? eventsCountResult.value.docs.reduce((count, docItem) => {
-            const data = docItem.data() as Record<string, unknown>;
-            const eventItem: Pick<EventItem, 'date' | 'is_past'> = {
-              date: safeDate(data.date),
-              is_past: Number(data.is_past ?? 0),
-            };
-            return isPastEventByPageRule(eventItem) ? count : count + 1;
-          }, 0)
-        : 0;
+    const eventsCount = pressReportsCountResult.status === 'fulfilled' ? pressReportsCountResult.value.data().count : 0;
     const supportCount = supportCountResult.status === 'fulfilled' ? supportCountResult.value.data().count : 0;
     const visitorsToday =
       visitorsTodayResult.status === 'fulfilled'
@@ -998,9 +987,8 @@ export async function getStats() {
       visitorsTotal,
     };
   } catch {
-    const [posts, events] = await Promise.all([getPosts(), getEvents()]);
-    const upcomingEvents = events.filter((item) => !isPastEventByPageRule(item));
-    return { posts: posts.length, events: upcomingEvents.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
+    const [posts, pressReports] = await Promise.all([getPosts(), getPressReports()]);
+    return { posts: posts.length, events: pressReports.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
   }
 }
 

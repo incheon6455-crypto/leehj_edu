@@ -408,7 +408,6 @@ export default function Events() {
   const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [submitSuccess, setSubmitSuccess] = useState('');
   const [form, setForm] = useState({
     title: '',
     tags: '',
@@ -513,7 +512,6 @@ export default function Events() {
 
   const openWriteModal = () => {
     setSubmitError('');
-    setSubmitSuccess('');
     setForm({
       title: '',
       tags: '',
@@ -622,7 +620,6 @@ export default function Events() {
   const handleCreatePressReport = async (event: React.FormEvent) => {
     event.preventDefault();
     setSubmitError('');
-    setSubmitSuccess('');
 
     const rawContent = contentEditorRef.current?.innerHTML || postContentHtmlRef.current || '';
     const transformed = transformContentWithVideoEmbeds(rawContent);
@@ -662,7 +659,6 @@ export default function Events() {
       } else {
         await loadReports();
       }
-      setSubmitSuccess('언론보도 항목이 등록되었습니다.');
       setIsWriteModalOpen(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
@@ -695,12 +691,6 @@ export default function Events() {
             </button>
           )}
         </div>
-
-        {submitSuccess ? (
-          <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {submitSuccess}
-          </div>
-        ) : null}
 
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
