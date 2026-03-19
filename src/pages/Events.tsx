@@ -223,13 +223,13 @@ export default function Events() {
         ) : null}
 
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[1, 2, 3].map((item) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[1, 2, 3, 4].map((item) => (
               <div key={item} className="animate-pulse bg-white rounded-3xl h-80 border border-slate-100" />
             ))}
           </div>
         ) : visibleReports.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {visibleReports.map((report, index) => (
               <motion.button
                 key={report.id}
