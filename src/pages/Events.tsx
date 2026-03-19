@@ -84,9 +84,44 @@ function applyEditorMediaConstraints(root: HTMLElement) {
   });
 }
 
-function sanitizeDetailContent(rawHtml: string) {
+function sanitizeRichHtml(rawHtml: string) {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = rawHtml;
+
+  wrapper.querySelectorAll('script,style,link,meta,iframe,object,embed').forEach((node) => node.remove());
+
+  const nodes = Array.from(wrapper.querySelectorAll('*'));
+  nodes.forEach((node) => {
+    const attrs = Array.from(node.attributes);
+    attrs.forEach((attr) => {
+      const attrName = attr.name.toLowerCase();
+      if (attrName.startsWith('on') || attrName === 'style' || attrName === 'srcdoc') {
+        node.removeAttribute(attr.name);
+      }
+    });
+
+    if (node.tagName === 'A') {
+      const href = node.getAttribute('href') || '';
+      if (!/^https?:\/\//i.test(href)) {
+        node.removeAttribute('href');
+      }
+      node.setAttribute('rel', 'noopener noreferrer');
+    }
+
+    if (node.tagName === 'IMG') {
+      const src = node.getAttribute('src') || '';
+      if (!/^(https?:\/\/|data:image\/)/i.test(src)) {
+        node.remove();
+      }
+    }
+  });
+
+  return wrapper.innerHTML;
+}
+
+function sanitizeDetailContent(rawHtml: string) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = sanitizeRichHtml(rawHtml);
   const images = Array.from(wrapper.querySelectorAll('img'));
   images.forEach((image) => {
     image.style.width = '100%';
@@ -290,13 +325,41 @@ export default function Events() {
     }
   };
 
+  const handleEditorPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const plainText = event.clipboardData.getData('text/plain');
+    if (!plainText) return;
+
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode(plainText);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    const editor = contentEditorRef.current;
+    if (!editor) return;
+    const sanitized = sanitizeRichHtml(editor.innerHTML);
+    if (sanitized !== editor.innerHTML) {
+      editor.innerHTML = sanitized;
+    }
+    applyEditorMediaConstraints(editor);
+    postContentHtmlRef.current = editor.innerHTML;
+    setForm((prev) => ({ ...prev, content: editor.innerHTML }));
+  };
+
   const handleCreatePressReport = async (event: React.FormEvent) => {
     event.preventDefault();
     setSubmitError('');
     setSubmitSuccess('');
 
     const rawContent = contentEditorRef.current?.innerHTML || postContentHtmlRef.current || '';
-    const normalizedContent = rawContent.trim();
+    const normalizedContent = sanitizeRichHtml(rawContent).trim();
     const normalizedTitle = form.title.trim();
     const normalizedTags = form.tags.trim();
     const fallbackImage = form.imageUrl || extractFirstImageFromHtml(normalizedContent);
@@ -560,7 +623,12 @@ export default function Events() {
                   ref={contentEditorRef}
                   contentEditable
                   suppressContentEditableWarning
+                  onPaste={handleEditorPaste}
                   onInput={(event) => {
+                    const sanitized = sanitizeRichHtml(event.currentTarget.innerHTML);
+                    if (sanitized !== event.currentTarget.innerHTML) {
+                      event.currentTarget.innerHTML = sanitized;
+                    }
                     applyEditorMediaConstraints(event.currentTarget);
                     postContentHtmlRef.current = event.currentTarget.innerHTML;
                     setForm((prev) => ({ ...prev, content: event.currentTarget.innerHTML }));
