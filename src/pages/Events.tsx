@@ -38,6 +38,10 @@ function buildNewsThumbnailUrl(url: string) {
   return `https://s.wordpress.com/mshots/v1/${encodeURIComponent(url)}?w=1200&h=675`;
 }
 
+function isGeneratedNewsThumbnail(url: string) {
+  return url.includes('https://s.wordpress.com/mshots/v1/');
+}
+
 function extractYouTubeVideoId(url: string) {
   try {
     const parsed = new URL(url);
@@ -60,6 +64,160 @@ function extractYouTubeVideoId(url: string) {
   } catch {
     return '';
   }
+}
+
+type VideoEmbedInfo =
+  | { kind: 'youtube'; videoId: string }
+  | { kind: 'mp4'; sourceUrl: string };
+
+function detectVideoEmbedInfo(url: string): VideoEmbedInfo | null {
+  const youtubeId = extractYouTubeVideoId(url);
+  if (youtubeId) return { kind: 'youtube', videoId: youtubeId };
+  if (/\.mp4($|\?)/i.test(url)) return { kind: 'mp4', sourceUrl: url };
+  return null;
+}
+
+function buildArticleEmbedNode(url: string) {
+  const wrapper = document.createElement('div');
+  wrapper.setAttribute('data-article-embed', 'true');
+  wrapper.style.margin = '10px 0';
+  wrapper.style.padding = '10px';
+  wrapper.style.border = '1px solid #e2e8f0';
+  wrapper.style.borderRadius = '10px';
+  wrapper.style.background = '#f8fafc';
+
+  const iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.loading = 'lazy';
+  iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation');
+  iframe.style.width = '100%';
+  iframe.style.minHeight = '420px';
+  iframe.style.border = '0';
+  iframe.style.borderRadius = '8px';
+  iframe.style.background = '#ffffff';
+
+  const link = document.createElement('a');
+  try {
+    const parsed = new URL(url);
+    link.textContent = `${parsed.hostname.replace(/^www\./, '')} 기사 원문 보기`;
+  } catch {
+    link.textContent = '기사 원문 보기';
+  }
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.style.display = 'inline-block';
+  link.style.marginTop = '8px';
+  link.style.fontSize = '13px';
+  link.style.fontWeight = '700';
+  link.style.color = '#9f1239';
+
+  wrapper.appendChild(iframe);
+  wrapper.appendChild(link);
+  return wrapper;
+}
+
+function buildVideoEmbedNode(info: VideoEmbedInfo) {
+  if (info.kind === 'youtube') {
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube-nocookie.com/embed/${info.videoId}?autoplay=1&mute=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1`;
+    iframe.width = '100%';
+    iframe.height = '420';
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.loading = 'lazy';
+    iframe.style.width = '100%';
+    iframe.style.maxWidth = '100%';
+    iframe.style.aspectRatio = '16 / 9';
+    iframe.style.border = '0';
+    iframe.style.borderRadius = '8px';
+    iframe.style.margin = '10px 0';
+    return iframe;
+  }
+
+  const video = document.createElement('video');
+  video.src = info.sourceUrl;
+  video.autoplay = true;
+  video.controls = true;
+  video.playsInline = true;
+  video.style.width = '100%';
+  video.style.maxWidth = '100%';
+  video.style.borderRadius = '8px';
+  video.style.margin = '10px 0';
+  return video;
+}
+
+function transformContentWithVideoEmbeds(rawHtml: string) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = rawHtml;
+  const thumbnailCandidates: string[] = [];
+  const textNodes: Text[] = [];
+
+  const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT);
+  let current = walker.nextNode();
+  while (current) {
+    textNodes.push(current as Text);
+    current = walker.nextNode();
+  }
+
+  const urlPattern = /(https?:\/\/[^\s<]+)/gi;
+  textNodes.forEach((node) => {
+    const parentElement = node.parentElement;
+    if (!parentElement) return;
+    if (
+      parentElement.closest('[data-article-embed="true"]') ||
+      parentElement.closest('a') ||
+      parentElement.closest('iframe') ||
+      parentElement.closest('video')
+    ) {
+      return;
+    }
+
+    const source = node.textContent || '';
+    if (!source.trim()) return;
+    const matches = [...source.matchAll(urlPattern)];
+    if (matches.length === 0) return;
+
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+
+    matches.forEach((match) => {
+      const foundUrl = match[0];
+      const start = match.index ?? 0;
+      if (start > cursor) {
+        fragment.appendChild(document.createTextNode(source.slice(cursor, start)));
+      }
+
+      const info = detectVideoEmbedInfo(foundUrl);
+      if (info) {
+        fragment.appendChild(buildVideoEmbedNode(info));
+        fragment.appendChild(document.createElement('br'));
+        if (info.kind === 'youtube') {
+          thumbnailCandidates.push(`https://img.youtube.com/vi/${info.videoId}/hqdefault.jpg`);
+        }
+      } else if (isNewsLikeUrl(foundUrl)) {
+        fragment.appendChild(buildArticleEmbedNode(foundUrl));
+        fragment.appendChild(document.createElement('br'));
+        thumbnailCandidates.push(buildNewsThumbnailUrl(foundUrl));
+      } else {
+        fragment.appendChild(document.createTextNode(foundUrl));
+      }
+      cursor = start + foundUrl.length;
+    });
+
+    if (cursor < source.length) {
+      fragment.appendChild(document.createTextNode(source.slice(cursor)));
+    }
+
+    node.parentNode?.replaceChild(fragment, node);
+  });
+
+  return {
+    html: wrapper.innerHTML,
+    firstVideoThumbnail: thumbnailCandidates[0] || '',
+  };
 }
 
 function extractFirstUrlFromContent(html: string) {
@@ -164,14 +322,14 @@ function sanitizeRichHtml(rawHtml: string) {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = rawHtml;
 
-  wrapper.querySelectorAll('script,style,link,meta,iframe,object,embed').forEach((node) => node.remove());
+  wrapper.querySelectorAll('script,style,link,meta,object,embed').forEach((node) => node.remove());
 
   const nodes = Array.from(wrapper.querySelectorAll('*'));
   nodes.forEach((node) => {
     const attrs = Array.from(node.attributes);
     attrs.forEach((attr) => {
       const attrName = attr.name.toLowerCase();
-      if (attrName.startsWith('on') || attrName === 'style' || attrName === 'srcdoc') {
+      if (attrName.startsWith('on') || attrName === 'srcdoc') {
         node.removeAttribute(attr.name);
       }
     });
@@ -190,6 +348,22 @@ function sanitizeRichHtml(rawHtml: string) {
         node.remove();
       }
     }
+
+    if (node.tagName === 'IFRAME') {
+      const src = node.getAttribute('src') || '';
+      if (!/^https?:\/\//i.test(src)) {
+        node.remove();
+        return;
+      }
+      node.setAttribute('loading', 'lazy');
+      node.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      if (!node.getAttribute('sandbox')) {
+        node.setAttribute(
+          'sandbox',
+          'allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation'
+        );
+      }
+    }
   });
 
   return wrapper.innerHTML;
@@ -198,6 +372,19 @@ function sanitizeRichHtml(rawHtml: string) {
 function sanitizeDetailContent(rawHtml: string) {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = sanitizeRichHtml(rawHtml);
+  const anchors = Array.from(wrapper.querySelectorAll('a[href]'));
+  anchors.forEach((anchor) => {
+    if (anchor.closest('[data-article-embed="true"]')) return;
+    const href = anchor.getAttribute('href') || '';
+    const info = detectVideoEmbedInfo(href);
+    if (info) {
+      anchor.replaceWith(buildVideoEmbedNode(info));
+      return;
+    }
+    if (isNewsLikeUrl(href)) {
+      anchor.replaceWith(buildArticleEmbedNode(href));
+    }
+  });
   const images = Array.from(wrapper.querySelectorAll('img'));
   images.forEach((image) => {
     image.style.width = '100%';
@@ -320,6 +507,9 @@ export default function Events() {
 
   const visibleReports = reports.slice(0, visibleCount);
   const selectedReportDetailHtml = selectedReport ? sanitizeDetailContent(selectedReport.content || '') : '';
+  const selectedReportHasEmbeddedMedia = /<(img|iframe|video)\b/i.test(selectedReportDetailHtml);
+  const shouldHideDetailHeroImage =
+    selectedReportHasEmbeddedMedia || (selectedReport ? isGeneratedNewsThumbnail(selectedReport.image_url || '') : false);
 
   const openWriteModal = () => {
     setSubmitError('');
@@ -435,10 +625,12 @@ export default function Events() {
     setSubmitSuccess('');
 
     const rawContent = contentEditorRef.current?.innerHTML || postContentHtmlRef.current || '';
-    const normalizedContent = sanitizeRichHtml(rawContent).trim();
+    const transformed = transformContentWithVideoEmbeds(rawContent);
+    const normalizedContent = sanitizeRichHtml(transformed.html).trim();
     const normalizedTitle = form.title.trim();
     const normalizedTags = form.tags.trim();
-    const fallbackImage = form.imageUrl || extractFirstImageFromHtml(normalizedContent);
+    const fallbackImage =
+      form.imageUrl || extractFirstImageFromHtml(normalizedContent) || transformed.firstVideoThumbnail;
 
     if (!normalizedTitle || !hasRichContent(normalizedContent)) {
       setSubmitError('제목과 내용을 입력해 주세요.');
@@ -593,25 +785,27 @@ export default function Events() {
             </div>
 
             <div className="p-5 space-y-4">
-              <div className="aspect-[2/1] overflow-hidden rounded-xl bg-slate-100">
-                <img
-                  src={selectedReport.image_url || getFallbackImage(`press-detail-${selectedReport.id}`)}
-                  alt={selectedReport.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              {!shouldHideDetailHeroImage ? (
+                <div className="aspect-[2/1] overflow-hidden rounded-xl bg-slate-100">
+                  <img
+                    src={selectedReport.image_url || getFallbackImage(`press-detail-${selectedReport.id}`)}
+                    alt={selectedReport.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : null}
               <div className="flex items-center gap-3 text-xs text-slate-500">
                 <span className="inline-flex items-center gap-1">
                   <Calendar size={13} /> {formatDate(selectedReport.date)}
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <Building2 size={13} /> {selectedReport.source}
+                  <Tag size={13} /> {selectedReport.tags || selectedReport.source || '-'}
                 </span>
               </div>
               <h3 className="text-2xl font-bold text-slate-900">{selectedReport.title}</h3>
               {selectedReport.content ? (
                 <div
-                  className="text-sm leading-7 text-slate-700 whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3"
+                  className="text-sm leading-7 text-slate-700 whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3 [&_iframe]:w-full [&_iframe]:max-w-full [&_iframe]:rounded-lg [&_iframe]:my-3 [&_video]:w-full [&_video]:max-w-full [&_video]:rounded-lg [&_video]:my-3"
                   dangerouslySetInnerHTML={{ __html: selectedReportDetailHtml }}
                 />
               ) : (
