@@ -13,6 +13,7 @@ import {
 
 const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 const VISITOR_COUNTED_SESSION_KEY = 'visitor_counted_in_session';
+const KPI_STATS_CACHE_KEY = 'kpi_stats_cache_v1';
 
 function CountUp({ value }: { value: number }) {
   const spring = useSpring(0, { stiffness: 50, damping: 20 });
@@ -36,7 +37,28 @@ function isReloadNavigation() {
 
 export function KPISection() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ visitorsTotal: 0, visitorsToday: 0, posts: 0, events: 0 });
+  const [stats, setStats] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem(KPI_STATS_CACHE_KEY) || '';
+      if (cached) {
+        const parsed = JSON.parse(cached) as {
+          visitorsTotal?: number;
+          visitorsToday?: number;
+          posts?: number;
+          events?: number;
+        };
+        return {
+          visitorsTotal: Number(parsed.visitorsTotal) || 0,
+          visitorsToday: Number(parsed.visitorsToday) || 0,
+          posts: Number(parsed.posts) || 0,
+          events: Number(parsed.events) || 0,
+        };
+      }
+    } catch {
+      // ignore broken cache
+    }
+    return { visitorsTotal: 0, visitorsToday: 0, posts: 0, events: 0 };
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -65,29 +87,40 @@ export function KPISection() {
       return isAdmin;
     };
 
+    const applyStats = (data: { visitorsTotal?: number; visitorsToday?: number; posts?: number; events?: number }) => {
+      const next = {
+        visitorsTotal: Number(data?.visitorsTotal) || 0,
+        visitorsToday: Number(data?.visitorsToday) || 0,
+        posts: Number(data?.posts) || 0,
+        events: Number(data?.events) || 0,
+      };
+      if (cancelled) return;
+      setStats(next);
+      sessionStorage.setItem(KPI_STATS_CACHE_KEY, JSON.stringify(next));
+    };
+
     const syncStats = async () => {
       const cycleKey = getVisitorCycleKey();
       const adminLoggedIn = await isAdminLoggedIn();
       const isMobileViewport = window.matchMedia('(max-width: 1023px)').matches;
       const isMobileReload = isMobileViewport && isReloadNavigation();
       const alreadyCountedInSession = sessionStorage.getItem(VISITOR_COUNTED_SESSION_KEY) === '1';
+
+      // Fetch stats first for faster first paint.
+      const data = await getStats();
+      applyStats(data);
+
+      // Visitor increment runs in background, then stats refreshes once.
       if (!adminLoggedIn && !alreadyCountedInSession && !isMobileReload) {
-        // Lock first to avoid duplicate increments during rapid remounts.
         sessionStorage.setItem(VISITOR_COUNTED_SESSION_KEY, '1');
         const counted = await incrementVisitCount(cycleKey);
         if (!counted) {
           sessionStorage.removeItem(VISITOR_COUNTED_SESSION_KEY);
+          return;
         }
+        const refreshed = await getStats();
+        applyStats(refreshed);
       }
-
-      const data = await getStats();
-      if (cancelled) return;
-      setStats({
-        visitorsTotal: Number(data?.visitorsTotal) || 0,
-        visitorsToday: Number(data?.visitorsToday) || 0,
-        posts: Number(data?.posts) || 0,
-        events: Number(data?.events) || 0,
-      });
     };
 
     syncStats();

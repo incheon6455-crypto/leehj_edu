@@ -315,6 +315,13 @@ const ADMIN_SESSION_COLLECTION = 'admin_sessions';
 const VISITOR_LIFETIME_BASELINE = 219;
 const VISITOR_LIFETIME_DOC_ID = 'lifetime_total';
 export const ADMIN_SESSION_STORAGE_KEY = 'admin_dashboard_session_token';
+const STATS_CACHE_TTL_MS = 20_000;
+let statsCache:
+  | {
+      value: { posts: number; events: number; supportMessages: number; visitorsToday: number; visitorsTotal: number };
+      expiresAt: number;
+    }
+  | null = null;
 
 export interface AdminIdentityProfile {
   username: string;
@@ -380,24 +387,12 @@ async function getVisitorLifetimeTotal() {
   if (!db || !isFirebaseConfigured) return VISITOR_LIFETIME_BASELINE;
 
   const lifetimeRef = doc(db, 'visitor_counters', VISITOR_LIFETIME_DOC_ID);
-  const [lifetimeSnap, visitorsCountSnap] = await Promise.all([
-    getDoc(lifetimeRef),
-    getCountFromServer(collection(db, 'visitors')),
-  ]);
-
-  const visitorsTotalFromLogs = Math.max(
-    parseNonNegativeNumber(visitorsCountSnap.data().count, 0),
-    VISITOR_LIFETIME_BASELINE
-  );
+  const lifetimeSnap = await getDoc(lifetimeRef);
 
   if (lifetimeSnap.exists()) {
     const data = lifetimeSnap.data() as Record<string, unknown>;
     const lifetimeTotal = parseNonNegativeNumber(data.total, 0);
-    const normalizedLifetimeTotal = Math.max(
-      lifetimeTotal,
-      visitorsTotalFromLogs,
-      VISITOR_LIFETIME_BASELINE
-    );
+    const normalizedLifetimeTotal = Math.max(lifetimeTotal, VISITOR_LIFETIME_BASELINE);
 
     if (normalizedLifetimeTotal !== lifetimeTotal) {
       await setDoc(
@@ -417,14 +412,14 @@ async function getVisitorLifetimeTotal() {
   await setDoc(
     lifetimeRef,
     {
-      total: visitorsTotalFromLogs,
+      total: VISITOR_LIFETIME_BASELINE,
       updatedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
     },
     { merge: true }
   );
 
-  return visitorsTotalFromLogs;
+  return VISITOR_LIFETIME_BASELINE;
 }
 
 function withPromiseTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
@@ -948,9 +943,15 @@ export async function markEventAsPast(eventId: string) {
 }
 
 export async function getStats() {
+  if (statsCache && Date.now() < statsCache.expiresAt) {
+    return statsCache.value;
+  }
+
   if (!db || !isFirebaseConfigured) {
     const [posts, pressReports] = await Promise.all([getPosts(), getPressReports()]);
-    return { posts: posts.length, events: pressReports.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
+    const fallback = { posts: posts.length, events: pressReports.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
+    statsCache = { value: fallback, expiresAt: Date.now() + STATS_CACHE_TTL_MS };
+    return fallback;
   }
 
   try {
@@ -979,16 +980,20 @@ export async function getStats() {
         ? visitorsTotalResult.value
         : Math.max(visitorsToday, VISITOR_LIFETIME_BASELINE);
 
-    return {
+    const resolved = {
       posts: postsCount,
       events: eventsCount,
       supportMessages: supportCount,
       visitorsToday,
       visitorsTotal,
     };
+    statsCache = { value: resolved, expiresAt: Date.now() + STATS_CACHE_TTL_MS };
+    return resolved;
   } catch {
     const [posts, pressReports] = await Promise.all([getPosts(), getPressReports()]);
-    return { posts: posts.length, events: pressReports.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
+    const fallback = { posts: posts.length, events: pressReports.length, supportMessages: 0, visitorsToday: 0, visitorsTotal: 0 };
+    statsCache = { value: fallback, expiresAt: Date.now() + STATS_CACHE_TTL_MS };
+    return fallback;
   }
 }
 
