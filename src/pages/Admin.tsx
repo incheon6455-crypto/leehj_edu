@@ -359,7 +359,7 @@ export default function Admin() {
     () => [
       { label: '오늘 방문 로그(00시 기준)', value: dashboard.totals.visitorsToday, icon: Users, color: 'text-burgundy' },
       { label: '전체 게시물', value: dashboard.totals.posts, icon: FileText, color: 'text-blue-600' },
-      { label: '전체 행사', value: dashboard.totals.events, icon: CalendarDays, color: 'text-emerald-600' },
+      { label: '보도자료', value: dashboard.totals.events, icon: CalendarDays, color: 'text-emerald-600' },
       { label: '정책제안', value: dashboard.totals.policyProposals, icon: Pencil, color: 'text-violet-600' },
       { label: '응원 메시지', value: dashboard.totals.supportMessages, icon: MessageSquareText, color: 'text-amber-600' },
       { label: '문의 게시판', value: dashboard.totals.contacts, icon: MessageSquareText, color: 'text-cyan-600' },
@@ -1643,7 +1643,7 @@ export default function Admin() {
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">전체 행사</h3>
+                <h3 className="text-lg font-bold text-slate-900">보도자료</h3>
                 <p className="text-xs text-slate-500 mt-0.5">총 {dashboard.totals.events.toLocaleString()}개</p>
               </div>
               <button
