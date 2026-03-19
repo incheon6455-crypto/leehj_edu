@@ -396,8 +396,13 @@ export default function Events() {
       }
       setSubmitSuccess('언론보도 항목이 등록되었습니다.');
       setIsWriteModalOpen(false);
-    } catch {
-      setSubmitError('등록에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('permission-denied') || message.includes('Missing or insufficient permissions')) {
+        setSubmitError('Firestore 권한으로 저장이 차단되었습니다. press_reports rules 배포를 확인해 주세요.');
+      } else {
+        setSubmitError('등록에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
     } finally {
       setIsSubmitting(false);
     }

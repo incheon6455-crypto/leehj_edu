@@ -585,6 +585,61 @@ async function createPostViaRest(payload: {
   }
 }
 
+async function createPressReportViaRest(payload: {
+  title: string;
+  summary: string;
+  source: string;
+  tags: string;
+  content: string;
+  article_url: string;
+  image_url: string;
+}) {
+  const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/press_reports?key=${firebaseConfig.apiKey}`;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        fields: {
+          title: { stringValue: payload.title },
+          summary: { stringValue: payload.summary },
+          source: { stringValue: payload.source },
+          tags: { stringValue: payload.tags },
+          content: { stringValue: payload.content },
+          article_url: { stringValue: payload.article_url },
+          image_url: { stringValue: payload.image_url },
+          date: { timestampValue: new Date().toISOString() },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `REST write failed (${response.status})`);
+    }
+
+    const json = (await response.json()) as { name?: string };
+    const id = (json.name?.split('/').pop() || `press-rest-${Date.now()}`).trim();
+    return {
+      id,
+      title: payload.title,
+      summary: payload.summary,
+      source: payload.source,
+      tags: payload.tags,
+      content: payload.content,
+      article_url: payload.article_url,
+      image_url: payload.image_url,
+      date: new Date().toISOString(),
+    } satisfies PressReportItem;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export async function getPosts(): Promise<Post[]> {
   if (!db || !isFirebaseConfigured) return FALLBACK_POSTS;
   try {
@@ -718,6 +773,21 @@ export async function createPressReport(payload: {
       date: new Date().toISOString(),
     } satisfies PressReportItem;
   } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    const canFallback =
+      message.includes('sdk-timeout') ||
+      message.includes('unavailable') ||
+      message.includes('network') ||
+      message.includes('Failed to fetch');
+
+    if (canFallback) {
+      try {
+        return await createPressReportViaRest(payload);
+      } catch (restError) {
+        throw normalizeFirestoreError(restError);
+      }
+    }
+
     throw normalizeFirestoreError(error);
   }
 }
