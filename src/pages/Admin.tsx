@@ -21,7 +21,7 @@ import {
   createSmsRequest,
   deleteAdminSession,
   deleteContact,
-  deleteEvent,
+  deletePressReport,
   deletePolicyProposal,
   deletePost,
   deleteSupportMessage,
@@ -140,6 +140,7 @@ function getEmptyDashboard(): AdminDashboardData {
     members: [],
     recentPosts: [],
     upcomingEvents: [],
+    recentPressReports: [],
     recentPolicies: [],
     recentSupportMessages: [],
     recentContacts: [],
@@ -207,7 +208,7 @@ export default function Admin() {
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [isPostsModalOpen, setIsPostsModalOpen] = useState(false);
   const [isEventsModalOpen, setIsEventsModalOpen] = useState(false);
-  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [deletingPressReportId, setDeletingPressReportId] = useState<string | null>(null);
   const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
   const [savingPolicyProposalId, setSavingPolicyProposalId] = useState<string | null>(null);
   const [reflectingPolicyProposalId, setReflectingPolicyProposalId] = useState<string | null>(null);
@@ -720,16 +721,16 @@ export default function Admin() {
     }
   };
 
-  const handleDeleteEvent = async (eventId: string) => {
-    setDeletingEventId(eventId);
+  const handleDeletePressReport = async (reportId: string) => {
+    setDeletingPressReportId(reportId);
     setError('');
     try {
-      await deleteEvent(eventId);
+      await deletePressReport(reportId);
       await loadDashboard();
     } catch {
-      setError('행사 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      setError('보도자료 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
-      setDeletingEventId(null);
+      setDeletingPressReportId(null);
     }
   };
 
@@ -1081,7 +1082,7 @@ export default function Admin() {
                   <metric.icon className={metric.color} size={16} />
                 </div>
                 <p className="text-2xl font-bold text-slate-900">{metric.value.toLocaleString()}</p>
-                <p className="mt-2 text-xs text-emerald-600">클릭해서 행사 보기</p>
+                <p className="mt-2 text-xs text-emerald-600">클릭해서 보도자료 보기</p>
               </button>
             ) : index === 3 ? (
               <button
@@ -1650,32 +1651,32 @@ export default function Admin() {
                 type="button"
                 onClick={() => setIsEventsModalOpen(false)}
                 className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
-                aria-label="행사 모달 닫기"
+                aria-label="보도자료 모달 닫기"
               >
                 <X size={18} />
               </button>
             </div>
 
             <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
-              {dashboard.upcomingEvents.length === 0 ? (
-                <p className="text-sm text-slate-400">행사가 없습니다.</p>
+              {dashboard.recentPressReports.length === 0 ? (
+                <p className="text-sm text-slate-400">보도자료가 없습니다.</p>
               ) : (
-                dashboard.upcomingEvents.map((eventItem) => (
-                  <div key={eventItem.id} className="rounded-xl border border-slate-100 p-4">
+                dashboard.recentPressReports.map((reportItem) => (
+                  <div key={reportItem.id} className="rounded-xl border border-slate-100 p-4">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-bold text-slate-900">{eventItem.title}</p>
+                      <p className="text-sm font-bold text-slate-900">{reportItem.title}</p>
                       <button
                         type="button"
-                        onClick={() => handleDeleteEvent(eventItem.id)}
-                        disabled={deletingEventId === eventItem.id}
+                        onClick={() => handleDeletePressReport(reportItem.id)}
+                        disabled={deletingPressReportId === reportItem.id}
                         className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
                       >
                         <Trash2 size={12} />
-                        {deletingEventId === eventItem.id ? '삭제 중' : '삭제'}
+                        {deletingPressReportId === reportItem.id ? '삭제 중' : '삭제'}
                       </button>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">{formatDate(eventItem.date)} · {eventItem.location}</p>
-                    <p className="mt-2 text-sm text-slate-700">{stripHtmlTags(eventItem.description).slice(0, 140) || '-'}</p>
+                    <p className="text-xs text-slate-500 mt-1">{formatDate(reportItem.date)} · {reportItem.source || '-'}</p>
+                    <p className="mt-2 text-sm text-slate-700">{stripHtmlTags(reportItem.content || reportItem.summary).slice(0, 140) || '-'}</p>
                   </div>
                 ))
               )}

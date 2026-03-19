@@ -134,6 +134,7 @@ export interface AdminDashboardData {
   members: MemberManagementItem[];
   recentPosts: Post[];
   upcomingEvents: EventItem[];
+  recentPressReports: PressReportItem[];
   recentPolicies: PolicyProposalItem[];
   recentSupportMessages: SupportMessageItem[];
   recentContacts: ContactInquiryItem[];
@@ -1194,12 +1195,12 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const updatedAt = new Date().toISOString();
   if (!db || !isFirebaseConfigured) {
     const recentPosts = [...FALLBACK_POSTS];
-    const upcomingEvents = FALLBACK_EVENTS.slice(0, 5);
+    const recentPressReports = [...FALLBACK_PRESS_REPORTS].slice(0, 50);
     const todayCycleStart = new Date(getVisitorCycleKey());
     return {
       totals: {
         posts: recentPosts.length,
-        events: upcomingEvents.length,
+        events: recentPressReports.length,
         policyProposals: 0,
         supportMessages: 0,
         contacts: 0,
@@ -1212,7 +1213,8 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       })),
       members: [],
       recentPosts,
-      upcomingEvents,
+      upcomingEvents: [],
+      recentPressReports,
       recentPolicies: [],
       recentSupportMessages: [],
       recentContacts: [],
@@ -1225,7 +1227,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     const cycleStart = new Date(cycleKey);
     const dailyBuckets = getRecentVisitorDayBuckets(cycleStart, 7);
     const postsRef = collection(db, 'posts');
-    const eventsRef = collection(db, 'events');
+    const pressReportsRef = collection(db, 'press_reports');
     const supportRef = collection(db, 'support_messages');
     const proposalsRef = collection(db, 'policy_proposals');
     const contactsRef = collection(db, 'contacts');
@@ -1237,13 +1239,13 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
     const [
       postsCountSnap,
-      eventsCountSnap,
+      pressReportsCountSnap,
       policyProposalsCountSnap,
       supportCountSnap,
       contactsCountSnap,
       visitorsTrendSnap,
       recentPostsSnap,
-      upcomingEventsSnap,
+      recentPressReportsSnap,
       recentSupportSnap,
       recentContactsSnap,
       supportMembersSnap,
@@ -1253,13 +1255,13 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       ...dailyVisitorTotals
     ] = await Promise.all([
       getCountFromServer(postsRef),
-      getCountFromServer(eventsRef),
+      getCountFromServer(pressReportsRef),
       getCountFromServer(proposalsRef),
       getCountFromServer(supportRef),
       contactsCountPromise,
       getDocs(visitorsQuery),
       getDocs(query(postsRef, orderBy('date', 'desc'))),
-      getDocs(query(eventsRef, orderBy('date', 'asc'))),
+      getDocs(query(pressReportsRef, orderBy('date', 'desc'))),
       getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
       recentContactsPromise,
       getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
@@ -1297,16 +1299,19 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       } satisfies Post;
     });
 
-    const upcomingEvents = upcomingEventsSnap.docs.map((docItem) => {
+    const recentPressReports = recentPressReportsSnap.docs.map((docItem) => {
       const data = docItem.data() as Record<string, unknown>;
       return {
         id: docItem.id,
         title: String(data.title ?? ''),
-        description: String(data.description ?? ''),
+        summary: String(data.summary ?? ''),
+        source: String(data.source ?? ''),
+        tags: String(data.tags ?? ''),
+        content: String(data.content ?? ''),
+        article_url: String(data.article_url ?? ''),
+        image_url: String(data.image_url ?? ''),
         date: safeDate(data.date),
-        location: String(data.location ?? ''),
-        is_past: Number(data.is_past ?? 0),
-      } satisfies EventItem;
+      } satisfies PressReportItem;
     });
 
     const recentSupportMessages = recentSupportSnap.docs.map((docItem) => {
@@ -1425,7 +1430,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     return {
       totals: {
         posts: postsCountSnap.data().count,
-        events: eventsCountSnap.data().count,
+        events: pressReportsCountSnap.data().count,
         policyProposals: policyProposalsCountSnap.data().count,
         supportMessages: supportCountSnap.data().count,
         contacts: contactsCountSnap ? contactsCountSnap.data().count : recentContacts.length,
@@ -1435,14 +1440,20 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       dailyVisitorTrend,
       members,
       recentPosts,
-      upcomingEvents,
+      upcomingEvents: [],
+      recentPressReports,
       recentPolicies: allPolicyProposals,
       recentSupportMessages,
       recentContacts,
       updatedAt,
     };
   } catch {
-    const [posts, events, support, policyProposals] = await Promise.all([getPosts(), getEvents(), getSupportMessages(), getPolicyProposals()]);
+    const [posts, pressReports, support, policyProposals] = await Promise.all([
+      getPosts(),
+      getPressReports(),
+      getSupportMessages(),
+      getPolicyProposals(),
+    ]);
     const todayCycleStart = new Date(getVisitorCycleKey());
     const fallbackMembers = dedupeMembersByIdentity(
       support.map((item) => ({
@@ -1459,7 +1470,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     return {
       totals: {
         posts: posts.length,
-        events: events.length,
+        events: pressReports.length,
         policyProposals: policyProposals.length,
         supportMessages: support.length,
         contacts: 0,
@@ -1472,7 +1483,8 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       })),
       members: fallbackMembers,
       recentPosts: posts,
-      upcomingEvents: events.slice(0, 5),
+      upcomingEvents: [],
+      recentPressReports: pressReports.slice(0, 50),
       recentPolicies: policyProposals,
       recentSupportMessages: support.slice(0, 7),
       recentContacts: [],
