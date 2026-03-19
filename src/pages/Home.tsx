@@ -297,13 +297,18 @@ export default function Home() {
 
   const handleSupportSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    const normalizedPhoneDigits = supportForm.phone.replace(/\D/g, '');
     const trimmed = {
       name: supportForm.name.trim(),
-      phone: supportForm.phone.trim(),
+      phone: formatPhoneInput(normalizedPhoneDigits),
       content: supportForm.content.trim(),
     };
     if (!trimmed.name || !trimmed.phone || !trimmed.content) {
       setSupportSubmitError('이름, 연락처, 응원 메시지를 모두 입력해 주세요.');
+      return;
+    }
+    if (normalizedPhoneDigits.length !== 11) {
+      setSupportSubmitError('연락처는 숫자 11자리를 정확히 입력해 주세요.');
       return;
     }
 
@@ -675,6 +680,8 @@ export default function Home() {
                   placeholder="연락처를 입력해 주세요"
                   inputMode="numeric"
                   maxLength={13}
+                  pattern="[0-9]{3}-?[0-9]{4}-?[0-9]{4}"
+                  title="휴대폰 번호 11자리를 입력해 주세요."
                   className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-burgundy transition-all"
                 />
               </div>
