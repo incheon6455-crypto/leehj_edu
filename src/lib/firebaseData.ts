@@ -32,6 +32,8 @@ export interface PressReportItem {
   title: string;
   summary: string;
   source: string;
+  tags: string;
+  content: string;
   article_url: string;
   image_url: string;
   date: string;
@@ -664,6 +666,8 @@ export async function getPressReports(): Promise<PressReportItem[]> {
         title: String(data.title ?? ''),
         summary: String(data.summary ?? ''),
         source: String(data.source ?? ''),
+        tags: String(data.tags ?? ''),
+        content: String(data.content ?? ''),
         article_url: String(data.article_url ?? ''),
         image_url: String(data.image_url ?? ''),
         date: safeDate(data.date),
@@ -679,6 +683,8 @@ export async function createPressReport(payload: {
   title: string;
   summary: string;
   source: string;
+  tags: string;
+  content: string;
   article_url: string;
   image_url: string;
 }) {
@@ -689,6 +695,8 @@ export async function createPressReport(payload: {
         title: payload.title,
         summary: payload.summary,
         source: payload.source,
+        tags: payload.tags,
+        content: payload.content,
         article_url: payload.article_url,
         image_url: payload.image_url,
         date: serverTimestamp(),
@@ -702,6 +710,8 @@ export async function createPressReport(payload: {
       title: payload.title,
       summary: payload.summary,
       source: payload.source,
+      tags: payload.tags,
+      content: payload.content,
       article_url: payload.article_url,
       image_url: payload.image_url,
       date: new Date().toISOString(),

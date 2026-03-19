@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Building2, Calendar, ExternalLink, Newspaper, Plus, X } from 'lucide-react';
-import { formatDate } from '../lib/utils';
+import { Building2, Calendar, ExternalLink, ImagePlus, Newspaper, Plus, Tag, X } from 'lucide-react';
+import { formatDate, stripHtmlTags } from '../lib/utils';
 import {
   ADMIN_SESSION_STORAGE_KEY,
   createPressReport,
@@ -12,17 +12,93 @@ import {
 
 const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 
-function isValidHttpUrl(value: string) {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
 function getFallbackImage(seed: string) {
   return `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/450`;
+}
+
+async function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('이미지 파일을 읽지 못했습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function optimizeImageDataUrl(file: File, maxDataUrlLength = 180_000) {
+  const source = await fileToDataUrl(file);
+  const image = new Image();
+  image.src = source;
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error('이미지 미리보기를 생성하지 못했습니다.'));
+  });
+
+  const maxWidth = 780;
+  const maxHeight = 780;
+  const scale = Math.min(1, maxWidth / image.width, maxHeight / image.height);
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return source;
+  ctx.drawImage(image, 0, 0, width, height);
+
+  let quality = 0.82;
+  let result = canvas.toDataURL('image/jpeg', quality);
+  while (result.length > maxDataUrlLength && quality > 0.32) {
+    quality -= 0.06;
+    result = canvas.toDataURL('image/jpeg', quality);
+  }
+  return result;
+}
+
+function extractFirstImageFromHtml(html: string) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  const img = wrapper.querySelector('img');
+  return img?.getAttribute('src') || '';
+}
+
+function hasRichContent(html: string) {
+  const plain = stripHtmlTags(html).trim();
+  if (plain) return true;
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  return Boolean(wrapper.querySelector('img,iframe,video'));
+}
+
+function applyEditorMediaConstraints(root: HTMLElement) {
+  const images = Array.from(root.querySelectorAll('img'));
+  images.forEach((image) => {
+    image.style.maxWidth = '100%';
+    image.style.width = '100%';
+    image.style.maxHeight = '220px';
+    image.style.height = 'auto';
+    image.style.objectFit = 'contain';
+    image.style.display = 'block';
+    image.style.margin = '8px 0';
+    image.style.borderRadius = '8px';
+  });
+}
+
+function sanitizeDetailContent(rawHtml: string) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = rawHtml;
+  const images = Array.from(wrapper.querySelectorAll('img'));
+  images.forEach((image) => {
+    image.style.width = '100%';
+    image.style.maxWidth = '100%';
+    image.style.height = 'auto';
+    image.style.maxHeight = 'none';
+    image.style.objectFit = 'cover';
+    image.style.display = 'block';
+    image.style.margin = '12px 0';
+    image.style.borderRadius = '8px';
+  });
+  return wrapper.innerHTML;
 }
 
 export default function Events() {
@@ -37,12 +113,14 @@ export default function Events() {
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [form, setForm] = useState({
     title: '',
-    source: '',
-    summary: '',
-    articleUrl: '',
+    tags: '',
+    content: '',
     imageUrl: '',
   });
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const contentEditorRef = useRef<HTMLDivElement | null>(null);
+  const postContentHtmlRef = useRef('');
+  const inlineImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadReports = async () => {
     const next = await getPressReports();
@@ -130,18 +208,86 @@ export default function Events() {
   }, [selectedReport, isWriteModalOpen]);
 
   const visibleReports = reports.slice(0, visibleCount);
+  const selectedReportDetailHtml = selectedReport ? sanitizeDetailContent(selectedReport.content || '') : '';
 
   const openWriteModal = () => {
     setSubmitError('');
     setSubmitSuccess('');
     setForm({
       title: '',
-      source: '',
-      summary: '',
-      articleUrl: '',
+      tags: '',
+      content: '',
       imageUrl: '',
     });
+    postContentHtmlRef.current = '';
     setIsWriteModalOpen(true);
+    window.requestAnimationFrame(() => {
+      if (contentEditorRef.current) {
+        contentEditorRef.current.innerHTML = '';
+      }
+    });
+  };
+
+  const insertImageIntoEditor = (src: string) => {
+    const editor = contentEditorRef.current;
+    if (!editor) return;
+
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const imageNode = document.createElement('img');
+    imageNode.src = src;
+    imageNode.alt = '첨부 이미지';
+    imageNode.style.maxWidth = '100%';
+    imageNode.style.width = '100%';
+    imageNode.style.maxHeight = '220px';
+    imageNode.style.height = 'auto';
+    imageNode.style.objectFit = 'contain';
+    imageNode.style.display = 'block';
+    imageNode.style.margin = '8px 0';
+    imageNode.style.borderRadius = '8px';
+
+    if (range && editor.contains(range.commonAncestorContainer)) {
+      range.deleteContents();
+      range.insertNode(imageNode);
+      const lineBreak = document.createElement('br');
+      imageNode.after(lineBreak);
+      range.setStartAfter(lineBreak);
+      range.collapse(true);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    } else {
+      editor.appendChild(imageNode);
+      editor.appendChild(document.createElement('br'));
+    }
+
+    applyEditorMediaConstraints(editor);
+    const nextHtml = editor.innerHTML;
+    postContentHtmlRef.current = nextHtml;
+    setForm((prev) => ({
+      ...prev,
+      imageUrl: prev.imageUrl || extractFirstImageFromHtml(nextHtml),
+    }));
+  };
+
+  const handleInlineImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (files.length === 0) return;
+    const hasNonImage = files.some((file) => !file.type.startsWith('image/'));
+    if (hasNonImage) {
+      setSubmitError('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+    try {
+      for (const file of files) {
+        const optimized = await optimizeImageDataUrl(file);
+        insertImageIntoEditor(optimized);
+      }
+      setSubmitError('');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '이미지 처리에 실패했습니다.';
+      setSubmitError(message);
+    }
   };
 
   const handleCreatePressReport = async (event: React.FormEvent) => {
@@ -149,37 +295,35 @@ export default function Events() {
     setSubmitError('');
     setSubmitSuccess('');
 
-    const payload = {
-      title: form.title.trim(),
-      source: form.source.trim(),
-      summary: form.summary.trim(),
-      articleUrl: form.articleUrl.trim(),
-      imageUrl: form.imageUrl.trim(),
-    };
+    const rawContent = contentEditorRef.current?.innerHTML || postContentHtmlRef.current || '';
+    const normalizedContent = rawContent.trim();
+    const normalizedTitle = form.title.trim();
+    const normalizedTags = form.tags.trim();
+    const fallbackImage = form.imageUrl || extractFirstImageFromHtml(normalizedContent);
 
-    if (!payload.title || !payload.source || !payload.summary || !payload.articleUrl) {
-      setSubmitError('제목, 언론사, 요약, 원문 링크를 모두 입력해 주세요.');
+    if (!normalizedTitle || !hasRichContent(normalizedContent)) {
+      setSubmitError('제목과 내용을 입력해 주세요.');
       return;
     }
 
-    if (!isValidHttpUrl(payload.articleUrl)) {
-      setSubmitError('원문 링크는 http 또는 https 형식이어야 합니다.');
+    if (normalizedContent.length > 900_000) {
+      setSubmitError('본문 이미지 용량이 큽니다. 사진 수를 줄이거나 다시 업로드해 주세요.');
       return;
     }
 
-    if (payload.imageUrl && !isValidHttpUrl(payload.imageUrl)) {
-      setSubmitError('대표 이미지 URL은 http 또는 https 형식이어야 합니다.');
-      return;
-    }
+    const summary = stripHtmlTags(normalizedContent).trim().slice(0, 240);
+    const source = normalizedTags.split(',')[0]?.trim() || '언론보도';
 
     setIsSubmitting(true);
     try {
       const saved = await createPressReport({
-        title: payload.title,
-        source: payload.source,
-        summary: payload.summary,
-        article_url: payload.articleUrl,
-        image_url: payload.imageUrl,
+        title: normalizedTitle,
+        summary,
+        source,
+        tags: normalizedTags,
+        content: normalizedContent,
+        article_url: '',
+        image_url: fallbackImage,
       });
 
       if (saved) {
@@ -258,13 +402,13 @@ export default function Events() {
                       <Calendar size={13} /> {formatDate(report.date)}
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <Building2 size={13} /> {report.source}
+                      <Tag size={13} /> {(report.tags || report.source || '').split(',')[0]}
                     </span>
                   </div>
                   <h2 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-burgundy transition-colors">
                     {report.title}
                   </h2>
-                  <p className="text-sm text-slate-600 line-clamp-3 flex-1">{report.summary}</p>
+                  <p className="text-sm text-slate-600 line-clamp-3 flex-1">{stripHtmlTags(report.content || report.summary || '')}</p>
                   <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-burgundy">
                     상세 보기 <ExternalLink size={14} />
                   </span>
@@ -321,16 +465,25 @@ export default function Events() {
                 </span>
               </div>
               <h3 className="text-2xl font-bold text-slate-900">{selectedReport.title}</h3>
-              <p className="text-sm leading-7 text-slate-700 whitespace-pre-wrap">{selectedReport.summary}</p>
-              <a
-                href={selectedReport.article_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg bg-burgundy px-4 py-2 text-sm font-bold text-white hover:bg-burgundy-dark transition-all"
-              >
-                <Newspaper size={15} />
-                기사 원문 보기
-              </a>
+              {selectedReport.content ? (
+                <div
+                  className="text-sm leading-7 text-slate-700 whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3"
+                  dangerouslySetInnerHTML={{ __html: selectedReportDetailHtml }}
+                />
+              ) : (
+                <p className="text-sm leading-7 text-slate-700 whitespace-pre-wrap">{selectedReport.summary}</p>
+              )}
+              {selectedReport.article_url ? (
+                <a
+                  href={selectedReport.article_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg bg-burgundy px-4 py-2 text-sm font-bold text-white hover:bg-burgundy-dark transition-all"
+                >
+                  <Newspaper size={15} />
+                  기사 원문 보기
+                </a>
+              ) : null}
             </div>
           </div>
         </div>
@@ -345,75 +498,78 @@ export default function Events() {
           }}
         >
           <div
-            className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-2xl h-[82vh] max-h-[82vh] rounded-2xl bg-white shadow-2xl flex flex-col"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">언론보도 등록</h2>
+              <h2 className="text-lg font-bold text-slate-900">언론보도 글쓰기</h2>
               <button
                 type="button"
                 onClick={() => setIsWriteModalOpen(false)}
                 disabled={isSubmitting}
                 className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
-                aria-label="등록 모달 닫기"
+                aria-label="글쓰기 모달 닫기"
               >
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleCreatePressReport} className="p-5 space-y-4">
+
+            <form onSubmit={handleCreatePressReport} className="p-5 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="text-sm font-semibold text-slate-700">제목</label>
                 <input
                   type="text"
+                  required
                   value={form.title}
                   onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
                   className="mt-1 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
-                  required
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-semibold text-slate-700">언론사</label>
-                  <input
-                    type="text"
-                    value={form.source}
-                    onChange={(event) => setForm((prev) => ({ ...prev, source: event.target.value }))}
-                    className="mt-1 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-slate-700">대표 이미지 URL (선택)</label>
-                  <input
-                    type="url"
-                    value={form.imageUrl}
-                    onChange={(event) => setForm((prev) => ({ ...prev, imageUrl: event.target.value }))}
-                    className="mt-1 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
-                    placeholder="https://..."
-                  />
-                </div>
-              </div>
               <div>
-                <label className="text-sm font-semibold text-slate-700">원문 링크</label>
+                <label className="text-sm font-semibold text-slate-700">태그 (쉼표 구분)</label>
                 <input
-                  type="url"
-                  value={form.articleUrl}
-                  onChange={(event) => setForm((prev) => ({ ...prev, articleUrl: event.target.value }))}
+                  type="text"
+                  value={form.tags}
+                  onChange={(event) => setForm((prev) => ({ ...prev, tags: event.target.value }))}
                   className="mt-1 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
-                  placeholder="https://..."
-                  required
+                  placeholder="언론보도,인터뷰"
                 />
               </div>
               <div>
-                <label className="text-sm font-semibold text-slate-700">요약</label>
-                <textarea
-                  value={form.summary}
-                  onChange={(event) => setForm((prev) => ({ ...prev, summary: event.target.value }))}
-                  className="mt-1 min-h-36 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
-                  required
+                <label className="text-sm font-semibold text-slate-700">내용</label>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="text-xs text-slate-500">사진 버튼으로 이미지를 본문에 바로 삽입할 수 있습니다.</p>
+                  <button
+                    type="button"
+                    onClick={() => inlineImageInputRef.current?.click()}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    <ImagePlus size={14} />
+                    사진
+                  </button>
+                  <input
+                    ref={inlineImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleInlineImageChange}
+                    className="hidden"
+                  />
+                </div>
+                <div
+                  ref={contentEditorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={(event) => {
+                    applyEditorMediaConstraints(event.currentTarget);
+                    postContentHtmlRef.current = event.currentTarget.innerHTML;
+                    setForm((prev) => ({ ...prev, content: event.currentTarget.innerHTML }));
+                  }}
+                  className="mt-2 h-56 overflow-y-auto w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus-within:ring-2 focus-within:ring-burgundy outline-none whitespace-pre-wrap break-words [&_img]:max-w-full [&_img]:w-full [&_img]:max-h-[220px] [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-lg [&_img]:my-2"
                 />
               </div>
               {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
+
               <div className="pt-1 flex justify-end gap-2">
                 <button
                   type="button"
