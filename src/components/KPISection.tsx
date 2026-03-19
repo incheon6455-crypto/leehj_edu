@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, useSpring, useTransform } from 'motion/react';
-import { Users, FileText, Calendar } from 'lucide-react';
+import { Users, FileText, Newspaper } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import {
@@ -133,7 +133,7 @@ export function KPISection() {
     { label: '총 누적 방문자', value: stats.visitorsTotal, icon: Users, color: 'text-burgundy' },
     { label: '오늘 방문자', value: stats.visitorsToday, icon: Users, color: 'text-rose-600' },
     { label: '게시물', value: stats.posts, icon: FileText, color: 'text-blue-600', path: '/posts' },
-    { label: '언론보도', value: stats.events, icon: Calendar, color: 'text-emerald-600', path: '/events' },
+    { label: '언론보도', value: stats.events, icon: Newspaper, color: 'text-emerald-600', path: '/events' },
   ];
 
   return (
