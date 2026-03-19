@@ -27,6 +27,16 @@ export interface Post {
   image_url: string;
 }
 
+export interface PressReportItem {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  article_url: string;
+  image_url: string;
+  date: string;
+}
+
 export interface EventItem {
   id: string;
   title: string;
@@ -210,6 +220,8 @@ const FALLBACK_POSTS: Post[] = [
     image_url: 'https://picsum.photos/seed/post4/800/400',
   },
 ];
+
+const FALLBACK_PRESS_REPORTS: PressReportItem[] = [];
 
 const FALLBACK_EVENTS: EventItem[] = [
   {
@@ -636,6 +648,74 @@ export async function createPost(payload: {
       }
     }
 
+    throw normalizeFirestoreError(error);
+  }
+}
+
+export async function getPressReports(): Promise<PressReportItem[]> {
+  if (!db || !isFirebaseConfigured) return FALLBACK_PRESS_REPORTS;
+  try {
+    const snap = await getDocs(query(collection(db, 'press_reports'), orderBy('date', 'desc')));
+    if (snap.empty) return FALLBACK_PRESS_REPORTS;
+    const items = snap.docs.map((docItem) => {
+      const data = docItem.data() as Record<string, unknown>;
+      return {
+        id: docItem.id,
+        title: String(data.title ?? ''),
+        summary: String(data.summary ?? ''),
+        source: String(data.source ?? ''),
+        article_url: String(data.article_url ?? ''),
+        image_url: String(data.image_url ?? ''),
+        date: safeDate(data.date),
+      } satisfies PressReportItem;
+    });
+    return sortByDateDesc(items);
+  } catch {
+    return FALLBACK_PRESS_REPORTS;
+  }
+}
+
+export async function createPressReport(payload: {
+  title: string;
+  summary: string;
+  source: string;
+  article_url: string;
+  image_url: string;
+}) {
+  if (!db || !isFirebaseConfigured) return null;
+  try {
+    const ref = await withPromiseTimeout(
+      addDoc(collection(db, 'press_reports'), {
+        title: payload.title,
+        summary: payload.summary,
+        source: payload.source,
+        article_url: payload.article_url,
+        image_url: payload.image_url,
+        date: serverTimestamp(),
+      }),
+      7000,
+      'sdk-timeout'
+    );
+
+    return {
+      id: ref.id,
+      title: payload.title,
+      summary: payload.summary,
+      source: payload.source,
+      article_url: payload.article_url,
+      image_url: payload.image_url,
+      date: new Date().toISOString(),
+    } satisfies PressReportItem;
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
+export async function deletePressReport(reportId: string) {
+  if (!db || !isFirebaseConfigured) return;
+  try {
+    await deleteDoc(doc(db, 'press_reports', reportId));
+  } catch (error) {
     throw normalizeFirestoreError(error);
   }
 }

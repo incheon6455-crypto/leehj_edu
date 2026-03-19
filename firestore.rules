@@ -8,6 +8,10 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    match /press_reports/{document=**} {
+      allow read, create, update, delete: if true;
+    }
+
     match /events/{document=**} {
       allow read: if true;
       allow create, update: if true;
