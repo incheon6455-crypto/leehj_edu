@@ -1143,7 +1143,7 @@ export default function Admin() {
             <div className="mb-4 space-y-1">
               <h2 className="text-lg font-bold text-slate-900">메인 좌측 배경화면 관리</h2>
               <p className="text-sm text-slate-500">
-                슬롯 4장까지 등록 가능합니다. 권장 사이즈: 1200x1600px 이상, 파일당 최대 {formatBytes(HERO_IMAGE_MAX_BYTES)}
+                슬롯 4장까지 등록 가능합니다. 권장 사이즈: 1200x1200px, 파일당 최대 {formatBytes(HERO_IMAGE_MAX_BYTES)}
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
