@@ -16,6 +16,82 @@ function getFallbackImage(seed: string) {
   return `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/450`;
 }
 
+function isNewsLikeUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+    return (
+      host.includes('news') ||
+      host.includes('press') ||
+      host.includes('journal') ||
+      host.includes('times') ||
+      path.includes('/news/') ||
+      path.includes('/article')
+    );
+  } catch {
+    return false;
+  }
+}
+
+function buildNewsThumbnailUrl(url: string) {
+  return `https://s.wordpress.com/mshots/v1/${encodeURIComponent(url)}?w=1200&h=675`;
+}
+
+function extractYouTubeVideoId(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') {
+      return parsed.pathname.replace(/\//g, '').trim();
+    }
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      if (parsed.pathname === '/watch') {
+        return parsed.searchParams.get('v') || '';
+      }
+      if (parsed.pathname.startsWith('/shorts/')) {
+        return parsed.pathname.split('/')[2] || '';
+      }
+      if (parsed.pathname.startsWith('/embed/')) {
+        return parsed.pathname.split('/')[2] || '';
+      }
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+function extractFirstUrlFromContent(html: string) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  const anchor = wrapper.querySelector('a[href]');
+  const href = anchor?.getAttribute('href') || '';
+  if (href) return href;
+  const plainText = wrapper.textContent || '';
+  const matched = plainText.match(/https?:\/\/[^\s<]+/i);
+  return matched?.[0] || '';
+}
+
+function getReportThumbnail(report: PressReportItem) {
+  if (report.image_url) return report.image_url;
+  const firstInlineImage = extractFirstImageFromHtml(report.content || '');
+  if (firstInlineImage) return firstInlineImage;
+
+  const candidateUrl = report.article_url || extractFirstUrlFromContent(report.content || '');
+  if (candidateUrl) {
+    const youtubeId = extractYouTubeVideoId(candidateUrl);
+    if (youtubeId) {
+      return `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+    }
+    if (isNewsLikeUrl(candidateUrl)) {
+      return buildNewsThumbnailUrl(candidateUrl);
+    }
+  }
+
+  return getFallbackImage(`press-${report.id}`);
+}
+
 async function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -454,7 +530,7 @@ export default function Events() {
               >
                 <div className="aspect-[2/1] overflow-hidden bg-slate-100">
                   <img
-                    src={report.image_url || getFallbackImage(`press-${report.id}`)}
+                    src={getReportThumbnail(report)}
                     alt={report.title}
                     onError={(event) => {
                       const target = event.currentTarget;
