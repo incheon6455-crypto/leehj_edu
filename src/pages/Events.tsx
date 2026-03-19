@@ -1,5 +1,3 @@
-import Posts from './Posts';
-
 export default function Events() {
-  return <Posts />;
+  return <div className="pt-32 pb-24" />;
 }
