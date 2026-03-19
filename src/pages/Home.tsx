@@ -368,9 +368,9 @@ export default function Home() {
   return (
     <div className="space-y-24 pb-24">
       {/* Hero Section */}
-      <section className="relative min-h-[80vh] flex flex-col lg:items-center pt-20 overflow-hidden bg-white">
+      <section className="relative min-h-[60vh] flex flex-col lg:items-center pt-20 overflow-hidden bg-white">
         <div className="order-1 w-full grid grid-cols-1 lg:absolute lg:inset-0 lg:grid-cols-2">
-          <div className="relative h-[40vh] lg:h-full bg-burgundy/[0.04] overflow-hidden">
+          <div className="relative h-[30vh] lg:h-full bg-burgundy/[0.04] overflow-hidden">
             {heroImages.map((image, index) => (
               <div
                 key={image}
@@ -382,7 +382,7 @@ export default function Home() {
               />
             ))}
           </div>
-          <div className="hidden h-[40vh] lg:block lg:h-full bg-burgundy/[0.02]" />
+          <div className="hidden h-[30vh] lg:block lg:h-full bg-burgundy/[0.02]" />
         </div>
         
         <div className="order-3 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
