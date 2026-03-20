@@ -8,7 +8,7 @@ export const CONFIG = {
     email: "camp@lee-edu.kr",
     sns: {
       facebook: "https://facebook.com",
-      instagram: "https://instagram.com",
+      instagram: "https://www.instagram.com/2_nowjun/",
       youtube: "https://youtube.com",
       blog: "https://blog.naver.com"
     }
