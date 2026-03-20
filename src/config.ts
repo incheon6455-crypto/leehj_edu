@@ -9,7 +9,7 @@ export const CONFIG = {
     sns: {
       facebook: "https://facebook.com",
       instagram: "https://www.instagram.com/2_nowjun/",
-      youtube: "https://youtube.com",
+      youtube: "https://www.youtube.com/@%EC%9D%B4%ED%98%84%EC%A4%80-m6k2u",
       blog: "https://blog.naver.com"
     }
   },

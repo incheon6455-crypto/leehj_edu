@@ -25,7 +25,12 @@ export function Footer() {
               >
                 <Instagram size={20} />
               </a>
-              <a href={CONFIG.contact.sns.youtube} className="p-2 bg-white/10 border border-white/20 rounded-full hover:bg-white/20 transition-colors">
+              <a
+                href={CONFIG.contact.sns.youtube}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-white/10 border border-white/20 rounded-full hover:bg-white/20 transition-colors"
+              >
                 <Youtube size={20} />
               </a>
             </div>
