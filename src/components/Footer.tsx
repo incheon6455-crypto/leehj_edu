@@ -17,7 +17,12 @@ export function Footer() {
               <a href={CONFIG.contact.sns.facebook} className="p-2 bg-white/10 border border-white/20 rounded-full hover:bg-white/20 transition-colors">
                 <Facebook size={20} />
               </a>
-              <a href={CONFIG.contact.sns.instagram} className="p-2 bg-white/10 border border-white/20 rounded-full hover:bg-white/20 transition-colors">
+              <a
+                href={CONFIG.contact.sns.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-white/10 border border-white/20 rounded-full hover:bg-white/20 transition-colors"
+              >
                 <Instagram size={20} />
               </a>
               <a href={CONFIG.contact.sns.youtube} className="p-2 bg-white/10 border border-white/20 rounded-full hover:bg-white/20 transition-colors">
