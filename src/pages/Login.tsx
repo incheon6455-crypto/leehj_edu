@@ -8,6 +8,7 @@ import { auth } from '../lib/firebase';
 import {
   ADMIN_SESSION_STORAGE_KEY,
   createAdminSession,
+  excludeCurrentSessionVisitCountForAdmin,
   getAdminAccountProfile,
   upsertAdminAccount,
   type AdminIdentityProfile,
@@ -48,6 +49,11 @@ export default function Login() {
         role: String(profile.role || 'admin'),
       })
     );
+    try {
+      await excludeCurrentSessionVisitCountForAdmin();
+    } catch {
+      // ignore visitor exclusion failure
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {

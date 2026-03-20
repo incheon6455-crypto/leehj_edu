@@ -324,6 +324,10 @@ const ADMIN_SESSION_COLLECTION = 'admin_sessions';
 const VISITOR_LIFETIME_BASELINE = 219;
 const VISITOR_LIFETIME_DOC_ID = 'lifetime_total';
 export const ADMIN_SESSION_STORAGE_KEY = 'admin_dashboard_session_token';
+export const VISITOR_COUNTED_SESSION_KEY = 'visitor_counted_in_session';
+const VISITOR_EXCLUDED_SESSION_KEY = 'visitor_excluded_as_admin_in_session';
+const VISITOR_SESSION_LOG_DOC_KEY = 'visitor_session_log_doc_id';
+const VISITOR_SESSION_LOG_CYCLE_KEY = 'visitor_session_log_cycle_key';
 const STATS_CACHE_TTL_MS = 20_000;
 let statsCache:
   | {
@@ -1062,19 +1066,100 @@ export async function incrementVisitCount(cycleKey: string) {
       });
     });
 
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(VISITOR_SESSION_LOG_CYCLE_KEY, cycleKey);
+      sessionStorage.removeItem(VISITOR_EXCLUDED_SESSION_KEY);
+    }
+
     try {
-      await addDoc(collection(db, 'visitors'), {
+      const visitorLogRef = await addDoc(collection(db, 'visitors'), {
         cycleKey,
         createdAt: serverTimestamp(),
       });
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(VISITOR_SESSION_LOG_DOC_KEY, visitorLogRef.id);
+      }
     } catch (error) {
       // Dashboard hourly trend uses visitors logs; counter consistency has priority.
       console.error('incrementVisitCount visitors log write failed', error);
     }
+    statsCache = null;
     return true;
   } catch (error) {
     // Visitor counter must not block UI.
     console.error('incrementVisitCount failed', error);
+    return false;
+  }
+}
+
+export async function excludeCurrentSessionVisitCountForAdmin() {
+  if (!db || !isFirebaseConfigured) return false;
+  if (typeof window === 'undefined') return false;
+
+  const countedInSession = sessionStorage.getItem(VISITOR_COUNTED_SESSION_KEY) === '1';
+  const alreadyExcluded = sessionStorage.getItem(VISITOR_EXCLUDED_SESSION_KEY) === '1';
+
+  if (!countedInSession || alreadyExcluded) return false;
+
+  const cycleKey = sessionStorage.getItem(VISITOR_SESSION_LOG_CYCLE_KEY) || getVisitorCycleKey();
+  const visitorLogDocId = sessionStorage.getItem(VISITOR_SESSION_LOG_DOC_KEY) || '';
+
+  try {
+    const counterRef = doc(db, 'visitor_counters', cycleKey);
+    const lifetimeRef = doc(db, 'visitor_counters', VISITOR_LIFETIME_DOC_ID);
+    let initialLifetimeTotal = VISITOR_LIFETIME_BASELINE;
+    try {
+      initialLifetimeTotal = await getVisitorLifetimeTotal();
+    } catch {
+      initialLifetimeTotal = VISITOR_LIFETIME_BASELINE;
+    }
+
+    const adjusted = await runTransaction(db, async (tx) => {
+      const [counterSnap, lifetimeSnap] = await Promise.all([tx.get(counterRef), tx.get(lifetimeRef)]);
+      if (!counterSnap.exists()) return false;
+
+      const counterData = counterSnap.data() as Record<string, unknown>;
+      const currentCount = parseNonNegativeNumber(counterData.count, 0);
+      if (currentCount <= 0) return false;
+
+      const previousLifetimeTotal = lifetimeSnap.exists()
+        ? parseNonNegativeNumber((lifetimeSnap.data() as Record<string, unknown>).total, initialLifetimeTotal)
+        : initialLifetimeTotal;
+      const nextLifetimeTotal = Math.max(VISITOR_LIFETIME_BASELINE, previousLifetimeTotal - 1);
+
+      tx.update(counterRef, {
+        count: currentCount - 1,
+        total: nextLifetimeTotal,
+        updatedAt: serverTimestamp(),
+      });
+
+      tx.set(lifetimeRef, {
+        total: nextLifetimeTotal,
+        updatedAt: serverTimestamp(),
+        createdAt: lifetimeSnap.exists()
+          ? (lifetimeSnap.data() as Record<string, unknown>).createdAt ?? serverTimestamp()
+          : serverTimestamp(),
+      });
+
+      return true;
+    });
+
+    if (adjusted && visitorLogDocId) {
+      try {
+        await deleteDoc(doc(db, 'visitors', visitorLogDocId));
+      } catch (error) {
+        console.error('excludeCurrentSessionVisitCountForAdmin visitors log delete failed', error);
+      }
+    }
+
+    if (adjusted) statsCache = null;
+    sessionStorage.removeItem(VISITOR_COUNTED_SESSION_KEY);
+    sessionStorage.removeItem(VISITOR_SESSION_LOG_DOC_KEY);
+    sessionStorage.removeItem(VISITOR_SESSION_LOG_CYCLE_KEY);
+    sessionStorage.setItem(VISITOR_EXCLUDED_SESSION_KEY, '1');
+    return adjusted;
+  } catch (error) {
+    console.error('excludeCurrentSessionVisitCountForAdmin failed', error);
     return false;
   }
 }

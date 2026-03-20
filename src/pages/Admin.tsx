@@ -27,6 +27,7 @@ import {
   deleteSupportMessage,
   deleteHeroBackgroundImage,
   deleteMemberAndRelatedContent,
+  excludeCurrentSessionVisitCountForAdmin,
   getAdminDashboardData,
   getHeroBackgroundImages,
   reflectPolicyProposalToCatalog,
@@ -338,6 +339,11 @@ export default function Admin() {
       sessionStorage.setItem(ADMIN_SESSION_STORAGE_KEY, sessionToken);
       sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
       sessionStorage.setItem(ADMIN_PROFILE_STORAGE_KEY, JSON.stringify({ username: 'admin', name: '관리자', role: 'admin' }));
+      try {
+        await excludeCurrentSessionVisitCountForAdmin();
+      } catch {
+        // ignore visitor exclusion failure
+      }
       setLoginError('');
       setPassword('');
       setIsLoggedIn(true);

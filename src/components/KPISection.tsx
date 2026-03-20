@@ -9,10 +9,10 @@ import {
   getVisitorCycleKey,
   getStats,
   incrementVisitCount,
+  VISITOR_COUNTED_SESSION_KEY,
 } from '../lib/firebaseData';
 
 const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
-const VISITOR_COUNTED_SESSION_KEY = 'visitor_counted_in_session';
 const KPI_STATS_CACHE_KEY = 'kpi_stats_cache_v1';
 
 function CountUp({ value }: { value: number }) {
