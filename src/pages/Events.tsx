@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Building2, Calendar, ExternalLink, ImagePlus, Newspaper, Plus, Tag, X } from 'lucide-react';
+import { Building2, Calendar, ExternalLink, ImagePlus, Newspaper, Pencil, Plus, Tag, X } from 'lucide-react';
 import { formatDate, stripHtmlTags } from '../lib/utils';
 import {
   ADMIN_SESSION_STORAGE_KEY,
   createPressReport,
   getAdminSessionProfile,
   getPressReports,
+  updatePressReport,
   type PressReportItem,
 } from '../lib/firebaseData';
 
@@ -415,10 +416,20 @@ export default function Events() {
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [visibleCount, setVisibleCount] = useState(9);
   const [selectedReport, setSelectedReport] = useState<PressReportItem | null>(null);
+  const [editingReport, setEditingReport] = useState<PressReportItem | null>(null);
   const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [editError, setEditError] = useState('');
   const [form, setForm] = useState({
+    title: '',
+    tags: '',
+    content: '',
+    imageUrl: '',
+  });
+  const [editForm, setEditForm] = useState({
     title: '',
     tags: '',
     content: '',
@@ -428,6 +439,9 @@ export default function Events() {
   const contentEditorRef = useRef<HTMLDivElement | null>(null);
   const postContentHtmlRef = useRef('');
   const inlineImageInputRef = useRef<HTMLInputElement | null>(null);
+  const editContentEditorRef = useRef<HTMLDivElement | null>(null);
+  const editPostContentHtmlRef = useRef('');
+  const editInlineImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadReports = async () => {
     const next = await getPressReports();
@@ -464,7 +478,10 @@ export default function Events() {
 
       if (!disposed) {
         setIsAdminUser(isAdmin);
-        if (!isAdmin) setIsWriteModalOpen(false);
+        if (!isAdmin) {
+          setIsWriteModalOpen(false);
+          setIsEditModalOpen(false);
+        }
       }
     };
 
@@ -503,16 +520,17 @@ export default function Events() {
   }, [reports.length, visibleCount]);
 
   useEffect(() => {
-    if (!selectedReport && !isWriteModalOpen) return;
+    if (!selectedReport && !isWriteModalOpen && !isEditModalOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setSelectedReport(null);
         setIsWriteModalOpen(false);
+        setIsEditModalOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedReport, isWriteModalOpen]);
+  }, [selectedReport, isWriteModalOpen, isEditModalOpen]);
 
   const visibleReports = reports.slice(0, visibleCount);
   const selectedReportDetailHtml = selectedReport ? sanitizeDetailContent(selectedReport.content || '') : '';
@@ -534,6 +552,27 @@ export default function Events() {
       if (contentEditorRef.current) {
         contentEditorRef.current.innerHTML = '';
       }
+    });
+  };
+
+  const openEditModal = (report: PressReportItem) => {
+    const initialContent = report.content || report.summary || '';
+    const sanitizedInitialContent = sanitizeRichHtml(initialContent);
+    setEditError('');
+    setEditingReport(report);
+    setEditForm({
+      title: report.title || '',
+      tags: report.tags || '',
+      content: sanitizedInitialContent,
+      imageUrl: report.image_url || extractFirstImageFromHtml(sanitizedInitialContent),
+    });
+    editPostContentHtmlRef.current = sanitizedInitialContent;
+    setIsEditModalOpen(true);
+    setSelectedReport(null);
+    window.requestAnimationFrame(() => {
+      if (!editContentEditorRef.current) return;
+      editContentEditorRef.current.innerHTML = sanitizedInitialContent;
+      applyEditorMediaConstraints(editContentEditorRef.current);
     });
   };
 
@@ -599,6 +638,68 @@ export default function Events() {
     }
   };
 
+  const insertImageIntoEditEditor = (src: string) => {
+    const editor = editContentEditorRef.current;
+    if (!editor) return;
+
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const imageNode = document.createElement('img');
+    imageNode.src = src;
+    imageNode.alt = '첨부 이미지';
+    imageNode.style.maxWidth = '100%';
+    imageNode.style.width = '100%';
+    imageNode.style.maxHeight = '220px';
+    imageNode.style.height = 'auto';
+    imageNode.style.objectFit = 'contain';
+    imageNode.style.display = 'block';
+    imageNode.style.margin = '8px 0';
+    imageNode.style.borderRadius = '8px';
+
+    if (range && editor.contains(range.commonAncestorContainer)) {
+      range.deleteContents();
+      range.insertNode(imageNode);
+      const lineBreak = document.createElement('br');
+      imageNode.after(lineBreak);
+      range.setStartAfter(lineBreak);
+      range.collapse(true);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    } else {
+      editor.appendChild(imageNode);
+      editor.appendChild(document.createElement('br'));
+    }
+
+    applyEditorMediaConstraints(editor);
+    const nextHtml = editor.innerHTML;
+    editPostContentHtmlRef.current = nextHtml;
+    setEditForm((prev) => ({
+      ...prev,
+      imageUrl: prev.imageUrl || extractFirstImageFromHtml(nextHtml),
+    }));
+  };
+
+  const handleEditInlineImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (files.length === 0) return;
+    const hasNonImage = files.some((file) => !file.type.startsWith('image/'));
+    if (hasNonImage) {
+      setEditError('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+    try {
+      for (const file of files) {
+        const optimized = await optimizeImageDataUrl(file);
+        insertImageIntoEditEditor(optimized);
+      }
+      setEditError('');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '이미지 처리에 실패했습니다.';
+      setEditError(message);
+    }
+  };
+
   const handleEditorPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
     event.preventDefault();
     const plainText = event.clipboardData.getData('text/plain');
@@ -625,6 +726,34 @@ export default function Events() {
     applyEditorMediaConstraints(editor);
     postContentHtmlRef.current = editor.innerHTML;
     setForm((prev) => ({ ...prev, content: editor.innerHTML }));
+  };
+
+  const handleEditEditorPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const plainText = event.clipboardData.getData('text/plain');
+    if (!plainText) return;
+
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode(plainText);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    const editor = editContentEditorRef.current;
+    if (!editor) return;
+    const sanitized = sanitizeRichHtml(editor.innerHTML);
+    if (sanitized !== editor.innerHTML) {
+      editor.innerHTML = sanitized;
+    }
+    applyEditorMediaConstraints(editor);
+    editPostContentHtmlRef.current = editor.innerHTML;
+    setEditForm((prev) => ({ ...prev, content: editor.innerHTML }));
   };
 
   const handleCreatePressReport = async (event: React.FormEvent) => {
@@ -679,6 +808,65 @@ export default function Events() {
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdatePressReport = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setEditError('');
+    if (!editingReport) return;
+
+    const rawContent = editContentEditorRef.current?.innerHTML || editPostContentHtmlRef.current || '';
+    const transformed = transformContentWithVideoEmbeds(rawContent);
+    const normalizedContent = sanitizeRichHtml(transformed.html).trim();
+    const normalizedTitle = editForm.title.trim();
+    const normalizedTags = editForm.tags.trim();
+    const fallbackImage =
+      editForm.imageUrl || extractFirstImageFromHtml(normalizedContent) || transformed.firstVideoThumbnail;
+
+    if (!normalizedTitle || !hasRichContent(normalizedContent)) {
+      setEditError('제목과 내용을 입력해 주세요.');
+      return;
+    }
+
+    if (normalizedContent.length > 900_000) {
+      setEditError('본문 이미지 용량이 큽니다. 사진 수를 줄이거나 다시 업로드해 주세요.');
+      return;
+    }
+
+    const summary = stripHtmlTags(normalizedContent).trim().slice(0, 240);
+    const source = normalizedTags.split(',')[0]?.trim() || '언론보도';
+
+    setIsEditSubmitting(true);
+    try {
+      const saved = await updatePressReport(editingReport.id, {
+        title: normalizedTitle,
+        summary,
+        source,
+        tags: normalizedTags,
+        content: normalizedContent,
+        article_url: editingReport.article_url || '',
+        image_url: fallbackImage,
+        date: editingReport.date,
+      });
+
+      if (saved) {
+        setReports((prev) => prev.map((item) => (item.id === saved.id ? saved : item)));
+        setSelectedReport(saved);
+      } else {
+        await loadReports();
+      }
+      setIsEditModalOpen(false);
+      setEditingReport(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('permission-denied') || message.includes('Missing or insufficient permissions')) {
+        setEditError('Firestore 권한으로 수정이 차단되었습니다. press_reports rules 배포를 확인해 주세요.');
+      } else {
+        setEditError('수정에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      setIsEditSubmitting(false);
     }
   };
 
@@ -774,14 +962,26 @@ export default function Events() {
           >
             <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-100 px-5 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">언론보도 상세</h2>
-              <button
-                type="button"
-                onClick={() => setSelectedReport(null)}
-                className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
-                aria-label="모달 닫기"
-              >
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                {isAdminUser ? (
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(selectedReport)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Pencil size={13} />
+                    수정
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setSelectedReport(null)}
+                  className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+                  aria-label="모달 닫기"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             <div className="p-5 space-y-4">
@@ -928,6 +1128,121 @@ export default function Events() {
                   className="px-4 py-2 rounded-lg bg-burgundy text-white font-bold hover:bg-burgundy-dark disabled:opacity-60"
                 >
                   {isSubmitting ? '저장 중...' : '저장'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isEditModalOpen && editingReport ? (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 px-4 py-6 flex items-center justify-center"
+          onClick={() => {
+            if (isEditSubmitting) return;
+            setIsEditModalOpen(false);
+            setEditingReport(null);
+          }}
+        >
+          <div
+            className="w-full max-w-2xl h-[82vh] max-h-[82vh] rounded-2xl bg-white shadow-2xl flex flex-col"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900">언론보도 수정</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingReport(null);
+                }}
+                disabled={isEditSubmitting}
+                className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+                aria-label="수정 모달 닫기"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdatePressReport} className="p-5 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="text-sm font-semibold text-slate-700">제목</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.title}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, title: event.target.value }))}
+                  className="mt-1 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700">태그 (쉼표 구분)</label>
+                <input
+                  type="text"
+                  value={editForm.tags}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, tags: event.target.value }))}
+                  className="mt-1 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-burgundy"
+                  placeholder="언론보도,인터뷰"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700">내용</label>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="text-xs text-slate-500">사진 버튼으로 이미지를 본문에 바로 삽입할 수 있습니다.</p>
+                  <button
+                    type="button"
+                    onClick={() => editInlineImageInputRef.current?.click()}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    <ImagePlus size={14} />
+                    사진
+                  </button>
+                  <input
+                    ref={editInlineImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleEditInlineImageChange}
+                    className="hidden"
+                  />
+                </div>
+                <div
+                  ref={editContentEditorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onPaste={handleEditEditorPaste}
+                  onInput={(event) => {
+                    const sanitized = sanitizeRichHtml(event.currentTarget.innerHTML);
+                    if (sanitized !== event.currentTarget.innerHTML) {
+                      event.currentTarget.innerHTML = sanitized;
+                    }
+                    applyEditorMediaConstraints(event.currentTarget);
+                    editPostContentHtmlRef.current = event.currentTarget.innerHTML;
+                    setEditForm((prev) => ({ ...prev, content: event.currentTarget.innerHTML }));
+                  }}
+                  className="mt-2 h-56 overflow-y-auto w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 focus-within:ring-2 focus-within:ring-burgundy outline-none whitespace-pre-wrap break-words [&_img]:max-w-full [&_img]:w-full [&_img]:max-h-[220px] [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-lg [&_img]:my-2"
+                />
+              </div>
+              {editError ? <p className="text-sm text-red-600">{editError}</p> : null}
+
+              <div className="pt-1 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingReport(null);
+                  }}
+                  disabled={isEditSubmitting}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isEditSubmitting}
+                  className="px-4 py-2 rounded-lg bg-burgundy text-white font-bold hover:bg-burgundy-dark disabled:opacity-60"
+                >
+                  {isEditSubmitting ? '수정 중...' : '수정 저장'}
                 </button>
               </div>
             </form>

@@ -819,6 +819,52 @@ export async function deletePressReport(reportId: string) {
   }
 }
 
+export async function updatePressReport(
+  reportId: string,
+  payload: {
+    title: string;
+    summary: string;
+    source: string;
+    tags: string;
+    content: string;
+    article_url: string;
+    image_url: string;
+    date?: string;
+  }
+) {
+  if (!db || !isFirebaseConfigured) return null;
+  try {
+    await withPromiseTimeout(
+      updateDoc(doc(db, 'press_reports', reportId), {
+        title: payload.title,
+        summary: payload.summary,
+        source: payload.source,
+        tags: payload.tags,
+        content: payload.content,
+        article_url: payload.article_url,
+        image_url: payload.image_url,
+        updatedAt: serverTimestamp(),
+      }),
+      12000,
+      'sdk-timeout'
+    );
+
+    return {
+      id: reportId,
+      title: payload.title,
+      summary: payload.summary,
+      source: payload.source,
+      tags: payload.tags,
+      content: payload.content,
+      article_url: payload.article_url,
+      image_url: payload.image_url,
+      date: payload.date || new Date().toISOString(),
+    } satisfies PressReportItem;
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
 export async function deletePost(postId: string) {
   if (!db || !isFirebaseConfigured) return;
   try {
