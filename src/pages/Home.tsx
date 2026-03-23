@@ -18,6 +18,7 @@ import heroImage3 from '../../Assets/IMG_7613.jpg';
 import heroImage4 from '../../Assets/IMG_7614.jpg';
 
 const DEFAULT_HERO_IMAGES = [leftBackgroundImage, heroImage2, heroImage3, heroImage4];
+const DEFAULT_SOCIAL_THUMBNAIL_URL = 'https://leehj-edu.web.app/og-main-left-image-removebg.jpg';
 const SUPPORT_VISIBLE_ROWS = 15;
 const SUPPORT_ROW_HEIGHT_PX = 44;
 const SUPPORT_SCROLL_THUMB_MIN_HEIGHT = 28;
@@ -166,6 +167,33 @@ function buildPostDetailHtml(content: string) {
   return wrapper.innerHTML;
 }
 
+function upsertMetaTag(selector: string, attrName: 'property' | 'name', attrValue: string, content: string) {
+  let tag = document.querySelector(selector) as HTMLMetaElement | null;
+  if (!tag) {
+    tag = document.createElement('meta');
+    tag.setAttribute(attrName, attrValue);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute('content', content);
+}
+
+function toAbsoluteUrl(image: string) {
+  const source = String(image || '').trim();
+  if (!source) return DEFAULT_SOCIAL_THUMBNAIL_URL;
+  if (source.startsWith('data:image/')) return source;
+  if (/^https?:\/\//i.test(source)) return source;
+  if (source.startsWith('/')) return `${window.location.origin}${source}`;
+  return DEFAULT_SOCIAL_THUMBNAIL_URL;
+}
+
+function syncHomeThumbnailMeta(image: string) {
+  const content = toAbsoluteUrl(image);
+  upsertMetaTag('meta[property="og:image"]', 'property', 'og:image', content);
+  upsertMetaTag('meta[property="og:image:url"]', 'property', 'og:image:url', content);
+  upsertMetaTag('meta[property="og:image:secure_url"]', 'property', 'og:image:secure_url', content);
+  upsertMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', content);
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
@@ -230,6 +258,12 @@ export default function Home() {
 
     return () => clearInterval(interval);
   }, [heroImages.length]);
+
+  useEffect(() => {
+    if (heroImages.length === 0) return;
+    const activeImage = heroImages[heroImageIndex] || heroImages[0] || DEFAULT_SOCIAL_THUMBNAIL_URL;
+    syncHomeThumbnailMeta(activeImage);
+  }, [heroImageIndex, heroImages]);
 
   useEffect(() => {
     const interval = setInterval(() => {
