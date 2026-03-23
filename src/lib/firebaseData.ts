@@ -37,6 +37,7 @@ export interface PressReportItem {
   article_url: string;
   image_url: string;
   date: string;
+  sort_order?: number;
 }
 
 export interface EventItem {
@@ -260,6 +261,35 @@ function sortByDateAsc<T extends { date: string; id: string }>(items: T[]) {
     const bTime = Number.isNaN(Date.parse(b.date)) ? 0 : Date.parse(b.date);
     if (aTime !== bTime) return aTime - bTime;
     return a.id.localeCompare(b.id);
+  });
+}
+
+function parsePositiveSortOrder(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
+function sortPressReports(items: PressReportItem[]) {
+  return [...items].sort((a, b) => {
+    const aOrder = parsePositiveSortOrder(a.sort_order);
+    const bOrder = parsePositiveSortOrder(b.sort_order);
+
+    if (aOrder === null && bOrder === null) {
+      const aTime = Number.isNaN(Date.parse(a.date)) ? 0 : Date.parse(a.date);
+      const bTime = Number.isNaN(Date.parse(b.date)) ? 0 : Date.parse(b.date);
+      if (bTime !== aTime) return bTime - aTime;
+      return b.id.localeCompare(a.id);
+    }
+
+    if (aOrder === null) return -1;
+    if (bOrder === null) return 1;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+
+    const aTime = Number.isNaN(Date.parse(a.date)) ? 0 : Date.parse(a.date);
+    const bTime = Number.isNaN(Date.parse(b.date)) ? 0 : Date.parse(b.date);
+    if (bTime !== aTime) return bTime - aTime;
+    return b.id.localeCompare(a.id);
   });
 }
 
@@ -721,7 +751,7 @@ export async function createPost(payload: {
 export async function getPressReports(): Promise<PressReportItem[]> {
   if (!db || !isFirebaseConfigured) return FALLBACK_PRESS_REPORTS;
   try {
-    const snap = await getDocs(query(collection(db, 'press_reports'), orderBy('date', 'desc')));
+    const snap = await getDocs(collection(db, 'press_reports'));
     if (snap.empty) return FALLBACK_PRESS_REPORTS;
     const items = snap.docs.map((docItem) => {
       const data = docItem.data() as Record<string, unknown>;
@@ -735,9 +765,10 @@ export async function getPressReports(): Promise<PressReportItem[]> {
         article_url: String(data.article_url ?? ''),
         image_url: String(data.image_url ?? ''),
         date: safeDate(data.date),
+        sort_order: parsePositiveSortOrder(data.sort_order) ?? undefined,
       } satisfies PressReportItem;
     });
-    return sortByDateDesc(items);
+    return sortPressReports(items);
   } catch {
     return FALLBACK_PRESS_REPORTS;
   }
@@ -830,21 +861,27 @@ export async function updatePressReport(
     article_url: string;
     image_url: string;
     date?: string;
+    sort_order?: number;
   }
 ) {
   if (!db || !isFirebaseConfigured) return null;
   try {
+    const nextPayload: Record<string, unknown> = {
+      title: payload.title,
+      summary: payload.summary,
+      source: payload.source,
+      tags: payload.tags,
+      content: payload.content,
+      article_url: payload.article_url,
+      image_url: payload.image_url,
+      updatedAt: serverTimestamp(),
+    };
+    if (typeof payload.sort_order !== 'undefined') {
+      nextPayload.sort_order = parsePositiveSortOrder(payload.sort_order) ?? null;
+    }
+
     await withPromiseTimeout(
-      updateDoc(doc(db, 'press_reports', reportId), {
-        title: payload.title,
-        summary: payload.summary,
-        source: payload.source,
-        tags: payload.tags,
-        content: payload.content,
-        article_url: payload.article_url,
-        image_url: payload.image_url,
-        updatedAt: serverTimestamp(),
-      }),
+      updateDoc(doc(db, 'press_reports', reportId), nextPayload),
       12000,
       'sdk-timeout'
     );
@@ -859,7 +896,31 @@ export async function updatePressReport(
       article_url: payload.article_url,
       image_url: payload.image_url,
       date: payload.date || new Date().toISOString(),
+      sort_order: parsePositiveSortOrder(payload.sort_order ?? null) ?? undefined,
     } satisfies PressReportItem;
+  } catch (error) {
+    throw normalizeFirestoreError(error);
+  }
+}
+
+export async function updatePressReportsOrder(reportIds: string[]) {
+  if (!db || !isFirebaseConfigured) return;
+  const uniqueIds = Array.from(new Set(reportIds.map((id) => id.trim()).filter(Boolean)));
+  if (uniqueIds.length === 0) return;
+
+  try {
+    const BATCH_LIMIT = 400;
+    for (let offset = 0; offset < uniqueIds.length; offset += BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      const chunk = uniqueIds.slice(offset, offset + BATCH_LIMIT);
+      chunk.forEach((id, index) => {
+        batch.update(doc(db, 'press_reports', id), {
+          sort_order: offset + index + 1,
+          updatedAt: serverTimestamp(),
+        });
+      });
+      await batch.commit();
+    }
   } catch (error) {
     throw normalizeFirestoreError(error);
   }
@@ -1474,7 +1535,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       contactsCountPromise,
       getDocs(visitorsQuery),
       getDocs(query(postsRef, orderBy('date', 'desc'))),
-      getDocs(query(pressReportsRef, orderBy('date', 'desc'))),
+      getDocs(pressReportsRef),
       getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
       recentContactsPromise,
       getDocs(query(supportRef, orderBy('createdAt', 'desc'))),
@@ -1524,6 +1585,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         article_url: String(data.article_url ?? ''),
         image_url: String(data.image_url ?? ''),
         date: safeDate(data.date),
+        sort_order: parsePositiveSortOrder(data.sort_order) ?? undefined,
       } satisfies PressReportItem;
     });
 
@@ -1654,7 +1716,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       members,
       recentPosts,
       upcomingEvents: [],
-      recentPressReports,
+      recentPressReports: sortPressReports(recentPressReports),
       recentPolicies: allPolicyProposals,
       recentSupportMessages,
       recentContacts,

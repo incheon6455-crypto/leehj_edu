@@ -32,6 +32,7 @@ import {
   getHeroBackgroundImages,
   reflectPolicyProposalToCatalog,
   saveHeroBackgroundImage,
+  updatePressReportsOrder,
   updatePolicyProposal,
   updateMemberBySource,
   verifyAdminSession,
@@ -210,6 +211,8 @@ export default function Admin() {
   const [isPostsModalOpen, setIsPostsModalOpen] = useState(false);
   const [isEventsModalOpen, setIsEventsModalOpen] = useState(false);
   const [deletingPressReportId, setDeletingPressReportId] = useState<string | null>(null);
+  const [draggingPressReportId, setDraggingPressReportId] = useState<string | null>(null);
+  const [savingPressReportOrder, setSavingPressReportOrder] = useState(false);
   const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
   const [savingPolicyProposalId, setSavingPolicyProposalId] = useState<string | null>(null);
   const [reflectingPolicyProposalId, setReflectingPolicyProposalId] = useState<string | null>(null);
@@ -737,6 +740,40 @@ export default function Admin() {
       setError('보도자료 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setDeletingPressReportId(null);
+    }
+  };
+
+  const reorderPressReports = (draggingId: string, targetId: string) => {
+    const current = dashboard.recentPressReports;
+    const fromIndex = current.findIndex((item) => item.id === draggingId);
+    const toIndex = current.findIndex((item) => item.id === targetId);
+    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return current;
+
+    const next = [...current];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    return next;
+  };
+
+  const handleDropPressReport = async (targetId: string) => {
+    const draggingId = draggingPressReportId;
+    setDraggingPressReportId(null);
+    if (!draggingId || draggingId === targetId || savingPressReportOrder) return;
+
+    const reordered = reorderPressReports(draggingId, targetId);
+    if (reordered === dashboard.recentPressReports) return;
+    const previous = dashboard.recentPressReports;
+
+    setDashboard((prev) => ({ ...prev, recentPressReports: reordered }));
+    setSavingPressReportOrder(true);
+    setError('');
+    try {
+      await updatePressReportsOrder(reordered.map((item) => item.id));
+    } catch {
+      setDashboard((prev) => ({ ...prev, recentPressReports: previous }));
+      setError('보도자료 순서 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setSavingPressReportOrder(false);
     }
   };
 
@@ -1664,17 +1701,41 @@ export default function Admin() {
             </div>
 
             <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                보도자료 순서를 드래그해서 변경할 수 있습니다.
+                {savingPressReportOrder ? ' 순서 저장 중...' : ''}
+              </div>
               {dashboard.recentPressReports.length === 0 ? (
                 <p className="text-sm text-slate-400">보도자료가 없습니다.</p>
               ) : (
                 dashboard.recentPressReports.map((reportItem) => (
-                  <div key={reportItem.id} className="rounded-xl border border-slate-100 p-4">
+                  <div
+                    key={reportItem.id}
+                    draggable={!savingPressReportOrder}
+                    onDragStart={() => setDraggingPressReportId(reportItem.id)}
+                    onDragEnd={() => setDraggingPressReportId(null)}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      void handleDropPressReport(reportItem.id);
+                    }}
+                    className={`rounded-xl border p-4 transition ${
+                      draggingPressReportId === reportItem.id
+                        ? 'border-emerald-300 bg-emerald-50/50 opacity-70'
+                        : 'border-slate-100'
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-bold text-slate-900">{reportItem.title}</p>
+                      <div className="min-w-0">
+                        <p className="text-xs text-slate-400 mb-0.5">↕ 드래그</p>
+                        <p className="text-sm font-bold text-slate-900">{reportItem.title}</p>
+                      </div>
                       <button
                         type="button"
                         onClick={() => handleDeletePressReport(reportItem.id)}
-                        disabled={deletingPressReportId === reportItem.id}
+                        disabled={deletingPressReportId === reportItem.id || savingPressReportOrder}
                         className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
                       >
                         <Trash2 size={12} />
