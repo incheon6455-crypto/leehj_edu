@@ -19,6 +19,7 @@ import heroImage4 from '../../Assets/IMG_7614.jpg';
 
 const DEFAULT_HERO_IMAGES = [leftBackgroundImage, heroImage2, heroImage3, heroImage4];
 const DEFAULT_SOCIAL_THUMBNAIL_URL = 'https://leehj-edu.web.app/og-main-left-image-removebg.jpg';
+const HERO_IMAGES_CACHE_KEY = 'home_hero_images_cache_v1';
 const SUPPORT_VISIBLE_ROWS = 15;
 const SUPPORT_ROW_HEIGHT_PX = 44;
 const SUPPORT_SCROLL_THUMB_MIN_HEIGHT = 28;
@@ -194,11 +195,26 @@ function syncHomeThumbnailMeta(image: string) {
   upsertMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', content);
 }
 
+function readCachedHeroImages() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(HERO_IMAGES_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const normalized = parsed.map((item) => String(item || '').trim()).filter(Boolean);
+    return normalized.length > 0 ? normalized : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [heroImageIndex, setHeroImageIndex] = useState(0);
-  const [heroImages, setHeroImages] = useState<string[]>(DEFAULT_HERO_IMAGES);
+  const [heroImages, setHeroImages] = useState<string[]>(() => readCachedHeroImages());
+  const [heroImagesResolved, setHeroImagesResolved] = useState(() => readCachedHeroImages().length > 0);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [supportMessages, setSupportMessages] = useState(DEFAULT_SUPPORT_MESSAGES);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
@@ -239,19 +255,26 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    getHeroBackgroundImages().then((data) => {
-      if (data.length === 0) return;
-      const merged = [...DEFAULT_HERO_IMAGES];
-      data.forEach((item) => {
-        if (item.slot >= 1 && item.slot <= 4 && item.dataUrl) {
-          merged[item.slot - 1] = item.dataUrl;
+    getHeroBackgroundImages()
+      .then((data) => {
+        const merged = [...DEFAULT_HERO_IMAGES];
+        if (data.length > 0) {
+          data.forEach((item) => {
+            if (item.slot >= 1 && item.slot <= 4 && item.dataUrl) {
+              merged[item.slot - 1] = item.dataUrl;
+            }
+          });
         }
+        setHeroImages(merged);
+        window.localStorage.setItem(HERO_IMAGES_CACHE_KEY, JSON.stringify(merged));
+      })
+      .finally(() => {
+        setHeroImagesResolved(true);
       });
-      setHeroImages(merged);
-    });
   }, []);
 
   useEffect(() => {
+    if (heroImages.length <= 1) return;
     const interval = setInterval(() => {
       setHeroImageIndex((prev) => (prev + 1) % heroImages.length);
     }, 3000);
@@ -264,6 +287,11 @@ export default function Home() {
     const activeImage = heroImages[heroImageIndex] || heroImages[0] || DEFAULT_SOCIAL_THUMBNAIL_URL;
     syncHomeThumbnailMeta(activeImage);
   }, [heroImageIndex, heroImages]);
+
+  useEffect(() => {
+    if (heroImages.length === 0) return;
+    setHeroImageIndex((prev) => (prev < heroImages.length ? prev : 0));
+  }, [heroImages.length]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -405,16 +433,20 @@ export default function Home() {
       <section className="relative min-h-[60vh] flex flex-col lg:items-center pt-20 overflow-hidden bg-white">
         <div className="order-1 w-full grid grid-cols-1 lg:absolute lg:inset-0 lg:grid-cols-2">
           <div className="relative h-[30vh] lg:h-full bg-burgundy/[0.04] overflow-hidden">
-            {heroImages.map((image, index) => (
-              <div
-                key={image}
-                className="absolute inset-0 bg-contain bg-center bg-no-repeat transition-opacity duration-700"
-                style={{
-                  backgroundImage: `url(${image})`,
-                  opacity: heroImageIndex === index ? 1 : 0,
-                }}
-              />
-            ))}
+            {heroImages.length === 0 && !heroImagesResolved ? (
+              <div className="absolute inset-0 bg-burgundy/[0.06]" />
+            ) : (
+              heroImages.map((image, index) => (
+                <div
+                  key={`${image}-${index}`}
+                  className="absolute inset-0 bg-contain bg-center bg-no-repeat transition-opacity duration-700"
+                  style={{
+                    backgroundImage: `url(${image})`,
+                    opacity: heroImageIndex === index ? 1 : 0,
+                  }}
+                />
+              ))
+            )}
           </div>
           <div className="hidden h-[30vh] lg:block lg:h-full bg-burgundy/[0.02]" />
         </div>
