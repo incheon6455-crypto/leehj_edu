@@ -54,7 +54,10 @@
     "rewrites": [
       {
         "source": "/og-image.jpg",
-        "function": "ogImage"
+        "function": {
+          "functionId": "ogImage",
+          "region": "asia-northeast3"
+        }
       },
       {
         "source": "**",
