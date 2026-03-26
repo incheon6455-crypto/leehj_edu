@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "source": "functions"
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
@@ -37,9 +40,22 @@
             "value": "public, max-age=31536000, immutable"
           }
         ]
+      },
+      {
+        "source": "/og-image.jpg",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, no-cache, must-revalidate, max-age=0"
+          }
+        ]
       }
     ],
     "rewrites": [
+      {
+        "source": "/og-image.jpg",
+        "function": "ogImage"
+      },
       {
         "source": "**",
         "destination": "/index.html"
