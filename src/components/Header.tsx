@@ -12,7 +12,8 @@ const navItems = [
   { name: '후보 소개', path: '/about' },
   { name: '정책', path: '/policies' },
   { name: '소식', path: '/posts' },
-  { name: '언론보도', path: '/events' },
+  { name: '언론 보도', path: '/events' },
+  { name: '행사', path: '/gallery' },
   { name: '후원/문의', path: '/contact' },
 ];
 const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
