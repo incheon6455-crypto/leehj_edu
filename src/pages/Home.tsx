@@ -430,9 +430,9 @@ export default function Home() {
   return (
     <div className="space-y-24 pb-24">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-white pt-24 pb-10 lg:pt-28 lg:pb-14">
-        <div className="pointer-events-none absolute inset-0 grid grid-cols-1 lg:grid-cols-2">
-          <div className="relative min-h-[32vh] lg:min-h-0 bg-burgundy/[0.04] overflow-hidden">
+      <section className="relative min-h-[60vh] flex flex-col lg:items-center pt-20 overflow-hidden bg-white">
+        <div className="order-1 w-full grid grid-cols-1 lg:absolute lg:inset-0 lg:grid-cols-2">
+          <div className="relative h-[30vh] lg:h-full bg-burgundy/[0.04] overflow-hidden">
             {heroImages.length === 0 && !heroImagesResolved ? (
               <div className="absolute inset-0 bg-burgundy/[0.06]" />
             ) : (
@@ -448,16 +448,16 @@ export default function Home() {
               ))
             )}
           </div>
-          <div className="hidden lg:block bg-burgundy/[0.02]" />
+          <div className="hidden h-[30vh] lg:block lg:h-full bg-burgundy/[0.02]" />
         </div>
-
-        <div className="relative z-30 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        
+        <div className="order-3 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center lg:-translate-y-[100px]">
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
-              className="text-left order-1 lg:order-2 lg:col-start-2"
+              className="text-left translate-y-[15px] lg:translate-y-[150px] lg:translate-x-[100px] order-1 lg:order-2 lg:col-start-2"
             >
               <span className="inline-block px-4 py-1.5 rounded-full bg-burgundy/10 text-burgundy text-sm font-bold mb-6 whitespace-nowrap">
                 제22대 교육감 예비후보
@@ -468,7 +468,7 @@ export default function Home() {
               <p className="text-lg text-slate-600 mb-10 leading-relaxed max-w-lg whitespace-pre-line">
                 {CONFIG.mainMessage}
               </p>
-              <div className="flex flex-wrap gap-4 max-md:justify-center">
+              <div className="-translate-y-[15px] lg:translate-y-0 flex flex-wrap gap-4 max-md:justify-center">
                 <Link to="/policies" className="bg-burgundy text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-burgundy-dark transition-all shadow-xl shadow-burgundy/20 flex items-center gap-2 max-md:px-6 max-md:py-3 max-md:text-base">
                   정책 보기 <ArrowRight size={20} />
                 </Link>
@@ -478,9 +478,12 @@ export default function Home() {
               </div>
             </motion.div>
           </div>
-          {/* KPI Section */}
-          <div className="relative z-20 mt-10 lg:mt-14 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex flex-row items-center gap-2 z-30">
+        </div>
+
+        {/* KPI Section at the bottom of Hero */}
+        <div className="order-2 w-full z-20 lg:absolute lg:bottom-0 lg:left-0 lg:right-0">
+          <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="absolute bottom-[158px] left-1/2 -translate-x-1/2 max-md:translate-y-[25px] flex flex-row items-center gap-2 z-30 md:bottom-auto md:-left-4 md:top-1/2 md:-translate-x-[40px] md:-translate-y-1/2 lg:-left-8">
               {heroImages.map((image, index) => (
                 <button
                   type="button"
@@ -496,10 +499,11 @@ export default function Home() {
             <KPISection />
           </div>
         </div>
+
       </section>
 
       {/* News & Events Preview */}
-      <section className="relative bg-gradient-to-b from-[#7a0f2c] via-[#660a24] to-[#4f071c] py-24 text-white">
+      <section className="relative -mt-[121px] bg-gradient-to-b from-[#7a0f2c] via-[#660a24] to-[#4f071c] py-24 text-white">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
