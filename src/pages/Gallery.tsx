@@ -23,6 +23,7 @@ export default function Events() {
     title: '',
     description: '',
     date: '',
+    time: '',
     location: '',
   });
 
@@ -93,6 +94,7 @@ export default function Events() {
       title: '',
       description: '',
       date: '',
+      time: '',
       location: '',
     });
     setIsWriteModalOpen(true);
@@ -108,9 +110,10 @@ export default function Events() {
     const title = form.title.trim();
     const description = form.description.trim();
     const date = form.date.trim();
+    const time = form.time.trim();
     const location = form.location.trim();
 
-    if (!title || !description || !date || !location) {
+    if (!title || !description || !date || !time || !location) {
       setSubmitError('모든 항목을 입력해주세요.');
       return;
     }
@@ -118,7 +121,7 @@ export default function Events() {
     setIsSubmitting(true);
     setSubmitError('');
     try {
-      await createEvent({ title, description, date, location });
+      await createEvent({ title, description, date: `${date}T${time}`, location });
       await loadEvents();
       setActiveTab('upcoming');
       closeWriteModal();
@@ -138,7 +141,7 @@ export default function Events() {
           <p className="text-slate-600">현장에서 시민 여러분과 함께하겠습니다.</p>
         </div>
 
-        <div className="mb-12 flex flex-col items-center gap-4">
+        <div className="mb-12 flex items-center gap-3">
           <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 flex gap-1">
             <button
               onClick={() => setActiveTab('upcoming')}
@@ -161,7 +164,7 @@ export default function Events() {
             <button
               type="button"
               onClick={openWriteModal}
-              className="inline-flex items-center gap-2 rounded-xl bg-burgundy px-5 py-3 text-sm font-bold text-white hover:bg-burgundy-dark transition-colors"
+              className="ml-auto inline-flex items-center gap-2 rounded-xl bg-burgundy px-5 py-3 text-sm font-bold text-white hover:bg-burgundy-dark transition-colors"
             >
               <Plus size={16} />
               일정 등록
@@ -190,7 +193,7 @@ export default function Events() {
               <div className="flex-1 space-y-4 text-center md:text-left">
                 <div className="flex flex-wrap justify-center md:justify-start gap-4 text-slate-500 text-sm">
                   <span className="flex items-center gap-1.5"><Calendar size={16} className="text-burgundy" /> {formatDate(event.date)}</span>
-                  <span className="flex items-center gap-1.5"><Clock size={16} className="text-burgundy" /> 14:00</span>
+                  <span className="flex items-center gap-1.5"><Clock size={16} className="text-burgundy" /> {new Date(event.date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
                   <span className="flex items-center gap-1.5"><MapPin size={16} className="text-burgundy" /> {event.location}</span>
                 </div>
                 <h3 className="text-2xl font-bold text-slate-900">{event.title}</h3>
@@ -270,6 +273,18 @@ export default function Events() {
                     type="date"
                     value={form.date}
                     onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-burgundy focus:ring-2 focus:ring-burgundy/20"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700" htmlFor="event-time">
+                    행사 시간
+                  </label>
+                  <input
+                    id="event-time"
+                    type="time"
+                    value={form.time}
+                    onChange={(e) => setForm((prev) => ({ ...prev, time: e.target.value }))}
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-burgundy focus:ring-2 focus:ring-burgundy/20"
                   />
                 </div>
