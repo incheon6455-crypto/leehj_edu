@@ -1,21 +1,134 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, MapPin, Clock, ExternalLink } from 'lucide-react';
+import { Calendar, MapPin, Clock, ExternalLink, Plus, X } from 'lucide-react';
 import { formatDate } from '../lib/utils';
-import { getEvents, type EventItem } from '../lib/firebaseData';
+import {
+  ADMIN_SESSION_STORAGE_KEY,
+  createEvent,
+  getAdminSessionProfile,
+  getEvents,
+  type EventItem,
+} from '../lib/firebaseData';
+
+const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 
 export default function Events() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    date: '',
+    location: '',
+  });
+
+  const loadEvents = async () => {
+    const next = await getEvents();
+    setEvents(next);
+  };
 
   useEffect(() => {
-    getEvents().then(setEvents);
+    void loadEvents();
   }, []);
 
-  const filteredEvents = events.filter(e => {
+  useEffect(() => {
+    let disposed = false;
+
+    const syncAdminSession = async () => {
+      let isAdmin = false;
+      try {
+        const sessionToken = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '';
+        if (sessionToken) {
+          const profile = await getAdminSessionProfile(sessionToken);
+          isAdmin = String(profile?.role || '').toLowerCase() === 'admin';
+        }
+
+        if (!isAdmin) {
+          const cachedProfileRaw = sessionStorage.getItem(ADMIN_PROFILE_STORAGE_KEY) || '';
+          if (cachedProfileRaw) {
+            const cachedProfile = JSON.parse(cachedProfileRaw) as { role?: string };
+            isAdmin = String(cachedProfile?.role || '').toLowerCase() === 'admin';
+          }
+        }
+      } catch {
+        isAdmin = false;
+      }
+
+      if (!disposed) {
+        setIsAdminUser(isAdmin);
+        if (!isAdmin) {
+          setIsWriteModalOpen(false);
+        }
+      }
+    };
+
+    const onStorageEvent = () => {
+      void syncAdminSession();
+    };
+
+    void syncAdminSession();
+    window.addEventListener('storage', onStorageEvent);
+    window.addEventListener('focus', onStorageEvent);
+    window.addEventListener('admin-session-changed', onStorageEvent);
+    return () => {
+      disposed = true;
+      window.removeEventListener('storage', onStorageEvent);
+      window.removeEventListener('focus', onStorageEvent);
+      window.removeEventListener('admin-session-changed', onStorageEvent);
+    };
+  }, []);
+
+  const filteredEvents = events.filter((e) => {
     const isPast = new Date(e.date) < new Date();
     return activeTab === 'past' ? isPast : !isPast;
   });
+
+  const openWriteModal = () => {
+    setSubmitError('');
+    setForm({
+      title: '',
+      description: '',
+      date: '',
+      location: '',
+    });
+    setIsWriteModalOpen(true);
+  };
+
+  const closeWriteModal = () => {
+    setIsWriteModalOpen(false);
+    setSubmitError('');
+  };
+
+  const handleCreateEvent = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const title = form.title.trim();
+    const description = form.description.trim();
+    const date = form.date.trim();
+    const location = form.location.trim();
+
+    if (!title || !description || !date || !location) {
+      setSubmitError('모든 항목을 입력해주세요.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      await createEvent({ title, description, date, location });
+      await loadEvents();
+      setActiveTab('upcoming');
+      closeWriteModal();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '일정 등록에 실패했습니다.';
+      setSubmitError(message || '일정 등록에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="pt-32 pb-24">
@@ -25,7 +138,7 @@ export default function Events() {
           <p className="text-slate-600">현장에서 시민 여러분과 함께하겠습니다.</p>
         </div>
 
-        <div className="flex justify-center mb-12">
+        <div className="mb-12 flex flex-col items-center gap-4">
           <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 flex gap-1">
             <button
               onClick={() => setActiveTab('upcoming')}
@@ -44,6 +157,16 @@ export default function Events() {
               지난 행사
             </button>
           </div>
+          {isAdminUser ? (
+            <button
+              type="button"
+              onClick={openWriteModal}
+              className="inline-flex items-center gap-2 rounded-xl bg-burgundy px-5 py-3 text-sm font-bold text-white hover:bg-burgundy-dark transition-colors"
+            >
+              <Plus size={16} />
+              일정 등록
+            </button>
+          ) : null}
         </div>
 
         <div className="space-y-6">
@@ -74,11 +197,13 @@ export default function Events() {
                 <p className="text-slate-600">{event.description}</p>
               </div>
               
-              <div className="shrink-0 w-full md:w-auto">
-                <button className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
-                  참가 신청 <ExternalLink size={18} />
-                </button>
-              </div>
+              {activeTab === 'upcoming' ? (
+                <div className="shrink-0 w-full md:w-auto">
+                  <button className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+                    참가 신청 <ExternalLink size={18} />
+                  </button>
+                </div>
+              ) : null}
             </motion.div>
           ))}
           
@@ -89,6 +214,107 @@ export default function Events() {
           )}
         </div>
       </div>
+
+      {isWriteModalOpen ? (
+        <div className="fixed inset-0 z-[80] bg-slate-900/50 px-4 py-8 overflow-y-auto">
+          <div className="mx-auto w-full max-w-xl rounded-3xl border border-slate-100 bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-900">행사 일정 등록</h2>
+              <button
+                type="button"
+                onClick={closeWriteModal}
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="닫기"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form className="space-y-4" onSubmit={handleCreateEvent}>
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="event-title">
+                  행사명
+                </label>
+                <input
+                  id="event-title"
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-burgundy focus:ring-2 focus:ring-burgundy/20"
+                  placeholder="행사명을 입력하세요"
+                  maxLength={120}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="event-description">
+                  행사 설명
+                </label>
+                <textarea
+                  id="event-description"
+                  value={form.description}
+                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="min-h-[120px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-burgundy focus:ring-2 focus:ring-burgundy/20"
+                  placeholder="행사 설명을 입력하세요"
+                  maxLength={1000}
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700" htmlFor="event-date">
+                    행사 날짜
+                  </label>
+                  <input
+                    id="event-date"
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-burgundy focus:ring-2 focus:ring-burgundy/20"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700" htmlFor="event-location">
+                    장소
+                  </label>
+                  <input
+                    id="event-location"
+                    type="text"
+                    value={form.location}
+                    onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-burgundy focus:ring-2 focus:ring-burgundy/20"
+                    placeholder="예: 광화문 광장"
+                    maxLength={160}
+                  />
+                </div>
+              </div>
+
+              {submitError ? (
+                <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+                  {submitError}
+                </p>
+              ) : null}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={closeWriteModal}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-burgundy px-4 py-2.5 text-sm font-bold text-white hover:bg-burgundy-dark disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSubmitting ? '등록 중...' : '등록'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
