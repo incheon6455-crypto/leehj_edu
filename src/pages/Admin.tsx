@@ -1302,11 +1302,11 @@ export default function Admin() {
                       )}
                     </div>
                     {pending ? <p className="text-xs text-slate-500 truncate">선택됨: {pending.fileName}</p> : null}
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-4 gap-1.5">
                       <button
                         type="button"
                         onClick={() => handleHeroFilePick(slot)}
-                        className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                        className="min-w-0 whitespace-nowrap rounded-md border border-slate-200 bg-white px-1.5 py-1.5 text-[11px] font-bold leading-none text-slate-700 hover:bg-slate-50 transition"
                       >
                         사진 선택
                       </button>
@@ -1314,7 +1314,7 @@ export default function Admin() {
                         type="button"
                         onClick={() => handleHeroUpload(slot)}
                         disabled={!pending || savingHeroSlot === slot}
-                        className="flex-1 rounded-lg bg-burgundy px-3 py-2 text-xs font-bold text-white hover:bg-burgundy-dark transition disabled:opacity-60"
+                        className="min-w-0 whitespace-nowrap rounded-md bg-burgundy px-1.5 py-1.5 text-[11px] font-bold leading-none text-white hover:bg-burgundy-dark transition disabled:opacity-60"
                       >
                         {savingHeroSlot === slot ? '업로드 중...' : '업로드'}
                       </button>
@@ -1322,7 +1322,7 @@ export default function Admin() {
                         type="button"
                         onClick={() => handleHeroDownload(slot)}
                         disabled={!saved}
-                        className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
+                        className="min-w-0 whitespace-nowrap rounded-md border border-slate-200 bg-white px-1.5 py-1.5 text-[11px] font-bold leading-none text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
                       >
                         다운로드
                       </button>
@@ -1330,7 +1330,7 @@ export default function Admin() {
                         type="button"
                         onClick={() => handleHeroDelete(slot)}
                         disabled={(!saved && !pending) || deletingHeroSlot === slot}
-                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100 transition disabled:opacity-60"
+                        className="min-w-0 whitespace-nowrap rounded-md border border-red-200 bg-red-50 px-1.5 py-1.5 text-[11px] font-bold leading-none text-red-700 hover:bg-red-100 transition disabled:opacity-60"
                       >
                         {deletingHeroSlot === slot ? '삭제 중' : '삭제'}
                       </button>
