@@ -66,6 +66,8 @@ const ADMIN_SESSION_KEY = 'admin_dashboard_auth';
 const ADMIN_PROFILE_STORAGE_KEY = 'admin_profile_cache';
 const HERO_IMAGE_SLOT_COUNT = 4;
 const HERO_IMAGE_MAX_BYTES = 850 * 1024;
+const HERO_IMAGE_TARGET_WIDTH = 960;
+const HERO_IMAGE_TARGET_HEIGHT = 900;
 const SMS_MAX_RECIPIENTS_PER_REQUEST = 20;
 const SMS_MAX_MESSAGE_BYTES = 90;
 const MEMBERS_PER_PAGE = 20;
@@ -167,6 +169,58 @@ async function fileToDataUrl(file: File) {
     reader.onerror = () => reject(new Error('파일을 읽지 못했습니다.'));
     reader.readAsDataURL(file);
   });
+}
+
+async function loadImageFromDataUrl(dataUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('이미지를 불러오지 못했습니다.'));
+    image.src = dataUrl;
+  });
+}
+
+async function buildHeroSafeImageDataUrl(file: File) {
+  const sourceDataUrl = await fileToDataUrl(file);
+  const image = await loadImageFromDataUrl(sourceDataUrl);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = HERO_IMAGE_TARGET_WIDTH;
+  canvas.height = HERO_IMAGE_TARGET_HEIGHT;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('이미지 처리 컨텍스트를 생성하지 못했습니다.');
+
+  // Fill the frame with a blurred cover background so letterbox areas don't look empty.
+  const coverScale = Math.max(HERO_IMAGE_TARGET_WIDTH / image.width, HERO_IMAGE_TARGET_HEIGHT / image.height);
+  const coverWidth = image.width * coverScale;
+  const coverHeight = image.height * coverScale;
+  const coverX = (HERO_IMAGE_TARGET_WIDTH - coverWidth) / 2;
+  const coverY = (HERO_IMAGE_TARGET_HEIGHT - coverHeight) / 2;
+  ctx.filter = 'blur(26px) brightness(0.7)';
+  ctx.drawImage(image, coverX, coverY, coverWidth, coverHeight);
+  ctx.filter = 'none';
+  ctx.fillStyle = 'rgba(17, 24, 39, 0.22)';
+  ctx.fillRect(0, 0, HERO_IMAGE_TARGET_WIDTH, HERO_IMAGE_TARGET_HEIGHT);
+
+  // Draw the original image without cropping (contain).
+  const containScale = Math.min(HERO_IMAGE_TARGET_WIDTH / image.width, HERO_IMAGE_TARGET_HEIGHT / image.height);
+  const drawWidth = image.width * containScale;
+  const drawHeight = image.height * containScale;
+  const drawX = (HERO_IMAGE_TARGET_WIDTH - drawWidth) / 2;
+  const drawY = (HERO_IMAGE_TARGET_HEIGHT - drawHeight) / 2;
+  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+
+  let quality = 0.9;
+  let dataUrl = canvas.toDataURL('image/jpeg', quality);
+  while (dataUrl.length > HERO_IMAGE_MAX_BYTES && quality > 0.45) {
+    quality -= 0.05;
+    dataUrl = canvas.toDataURL('image/jpeg', quality);
+  }
+
+  return {
+    dataUrl,
+    sizeBytes: new TextEncoder().encode(dataUrl).length,
+  };
 }
 
 export default function Admin() {
@@ -658,16 +712,16 @@ export default function Admin() {
       setError('이미지 파일만 업로드할 수 있습니다.');
       return;
     }
-    if (file.size > HERO_IMAGE_MAX_BYTES) {
-      setError(`파일 용량이 너무 큽니다. 1장당 최대 ${formatBytes(HERO_IMAGE_MAX_BYTES)} 이하로 업로드해 주세요.`);
-      return;
-    }
 
     try {
-      const dataUrl = await fileToDataUrl(file);
+      const optimized = await buildHeroSafeImageDataUrl(file);
+      if (optimized.sizeBytes > HERO_IMAGE_MAX_BYTES) {
+        setError(`변환 후 파일 용량이 너무 큽니다. 1장당 최대 ${formatBytes(HERO_IMAGE_MAX_BYTES)} 이하로 업로드해 주세요.`);
+        return;
+      }
       setHeroPendingFiles((prev) => {
         const next = [...prev];
-        next[index] = { dataUrl, sizeBytes: file.size, fileName: file.name };
+        next[index] = { dataUrl: optimized.dataUrl, sizeBytes: optimized.sizeBytes, fileName: `${file.name} (960x900 변환)` };
         return next;
       });
       setError('');
@@ -1186,7 +1240,7 @@ export default function Admin() {
             <div className="mb-4 space-y-1">
               <h2 className="text-lg font-bold text-slate-900">메인 좌측 배경화면 관리</h2>
               <p className="text-sm text-slate-500">
-                슬롯 4장까지 등록 가능합니다. 권장 사이즈: 1200x1200px, 파일당 최대 {formatBytes(HERO_IMAGE_MAX_BYTES)}
+                슬롯 4장까지 등록 가능합니다. 1920x1080 기준 자동으로 960x900으로 변환되며, 비율이 달라도 잘리지 않게 보정됩니다. 파일당 최대 {formatBytes(HERO_IMAGE_MAX_BYTES)}
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

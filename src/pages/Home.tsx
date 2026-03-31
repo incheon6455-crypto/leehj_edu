@@ -439,12 +439,18 @@ export default function Home() {
               heroImages.map((image, index) => (
                 <div
                   key={`${image}-${index}`}
-                  className="absolute inset-0 bg-contain lg:bg-[length:auto_900px] bg-center bg-no-repeat transition-opacity duration-700"
-                  style={{
-                    backgroundImage: `url(${image})`,
-                    opacity: heroImageIndex === index ? 1 : 0,
-                  }}
-                />
+                  className="absolute inset-0 transition-opacity duration-700"
+                  style={{ opacity: heroImageIndex === index ? 1 : 0 }}
+                >
+                  <div
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat blur-xl scale-110 opacity-70"
+                    style={{ backgroundImage: `url(${image})` }}
+                  />
+                  <div
+                    className="absolute inset-0 bg-contain lg:bg-[length:auto_900px] bg-center bg-no-repeat"
+                    style={{ backgroundImage: `url(${image})` }}
+                  />
+                </div>
               ))
             )}
           </div>
