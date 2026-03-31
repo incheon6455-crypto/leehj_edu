@@ -147,7 +147,7 @@ export function KPISection() {
       <div className="grid grid-cols-4 md:grid-cols-4 md:divide-x-0 divide-y-0">
         {cards.map((card, i) => {
           const cardClassName = cn(
-            "flex items-center justify-center gap-4 py-4 md:py-1 md:px-6 max-md:flex-col max-md:gap-0.5 max-md:py-1 max-md:px-1",
+            "flex items-center justify-center gap-2.5 py-4 md:py-1 md:px-3 max-md:flex-col max-md:gap-0.5 max-md:py-1 max-md:px-1",
             i === 0 && "pt-0 md:pl-0",
             i === cards.length - 1 && "pb-0 md:pr-0",
             card.path && "cursor-pointer hover:bg-slate-50 transition-colors rounded-lg"
@@ -155,7 +155,7 @@ export function KPISection() {
 
           const cardContent = (
             <>
-              <div className={cn("p-3 bg-slate-500/5 max-md:p-1.5", card.color)}>
+              <div className={cn("p-2.5 bg-slate-500/5 max-md:p-1.5", card.color)}>
                 <card.icon size={16} className="md:w-[22px] md:h-[22px]" />
               </div>
               <div>
