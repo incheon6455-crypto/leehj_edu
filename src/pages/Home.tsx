@@ -463,7 +463,7 @@ export default function Home() {
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
-              className="order-2 flex flex-col justify-center px-6 py-10 text-left sm:px-10 lg:col-start-2 lg:px-12"
+              className="order-2 flex flex-col justify-center px-6 py-10 text-left sm:px-10 lg:col-start-2 lg:px-12 lg:items-center lg:text-center"
             >
               <span className="inline-flex w-fit items-center rounded-full bg-burgundy/10 px-3 py-1 text-xs font-bold text-burgundy md:text-sm mb-6 whitespace-nowrap">
                 제22대 교육감 예비후보
@@ -474,7 +474,7 @@ export default function Home() {
               <p className="text-lg text-slate-600 mb-10 leading-relaxed max-w-lg whitespace-pre-line">
                 {CONFIG.mainMessage}
               </p>
-              <div className="flex flex-wrap gap-4 max-md:justify-center">
+              <div className="flex flex-wrap gap-4 max-md:justify-center lg:justify-center">
                 <Link to="/policies" className="bg-burgundy text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-burgundy-dark transition-all shadow-xl shadow-burgundy/20 flex items-center gap-2 max-md:px-6 max-md:py-3 max-md:text-base">
                   정책 보기 <ArrowRight size={20} />
                 </Link>
