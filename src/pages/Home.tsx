@@ -18,7 +18,7 @@ import heroImage3 from '../../Assets/IMG_7613.jpg';
 import heroImage4 from '../../Assets/IMG_7614.jpg';
 
 const DEFAULT_HERO_IMAGES = [leftBackgroundImage, heroImage2, heroImage3, heroImage4];
-const DEFAULT_SOCIAL_THUMBNAIL_URL = 'https://leehj-edu.web.app/og-main-left-image-removebg.jpg';
+const DEFAULT_SOCIAL_THUMBNAIL_URL = 'https://leehj-edu.web.app/og-share.jpg';
 const HERO_IMAGES_CACHE_KEY = 'home_hero_images_cache_v1';
 const SUPPORT_VISIBLE_ROWS = 15;
 const SUPPORT_ROW_HEIGHT_PX = 44;
