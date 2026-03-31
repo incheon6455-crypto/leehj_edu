@@ -485,7 +485,7 @@ export default function Home() {
             </motion.div>
           </div>
 
-          <div className="relative z-20 mx-auto mt-8 w-full max-w-[980px] sm:px-2 lg:mt-10">
+          <div className="relative z-20 mx-auto mt-8 w-full max-w-[980px] sm:px-2 lg:mt-[420px]">
             <KPISection />
           </div>
         </div>
