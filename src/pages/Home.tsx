@@ -463,7 +463,7 @@ export default function Home() {
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
-              className="order-2 flex flex-col justify-center px-6 py-10 text-left sm:px-10 lg:col-start-2 lg:h-[800px] lg:translate-x-[70px] lg:px-12 lg:items-center lg:text-center"
+              className="order-2 flex flex-col justify-center px-6 py-10 text-left sm:px-10 lg:col-start-2 lg:h-[800px] lg:translate-x-[150px] lg:px-12 lg:items-center lg:text-center"
             >
               <span className="inline-flex w-fit items-center rounded-full bg-burgundy/10 px-3 py-1 text-xs font-bold text-burgundy md:text-sm mb-6 whitespace-nowrap">
                 제22대 교육감 예비후보
