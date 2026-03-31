@@ -432,7 +432,7 @@ export default function Home() {
       {/* Hero Section */}
       <section className="relative mt-20 min-h-[60vh] flex flex-col lg:items-center pt-20 overflow-hidden bg-white">
         <div className="order-1 w-full grid grid-cols-1 lg:absolute lg:inset-0 lg:grid-cols-2">
-          <div className="relative h-[30vh] lg:h-[900px] bg-burgundy/[0.04] overflow-hidden">
+          <div className="relative h-[30vh] lg:h-[800px] bg-burgundy/[0.04] overflow-hidden">
             {heroImages.length === 0 && !heroImagesResolved ? (
               <div className="absolute inset-0 bg-burgundy/[0.06]" />
             ) : (
@@ -447,14 +447,14 @@ export default function Home() {
                     style={{ backgroundImage: `url(${image})` }}
                   />
                   <div
-                    className="absolute inset-0 bg-contain lg:bg-[length:auto_900px] bg-center bg-no-repeat"
+                    className="absolute inset-0 bg-contain lg:bg-[length:auto_800px] bg-center bg-no-repeat"
                     style={{ backgroundImage: `url(${image})` }}
                   />
                 </div>
               ))
             )}
           </div>
-          <div className="hidden h-[30vh] lg:block lg:h-[900px] bg-burgundy/[0.02]" />
+          <div className="hidden h-[30vh] lg:block lg:h-[800px] bg-burgundy/[0.02]" />
         </div>
         
         <div className="order-3 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
