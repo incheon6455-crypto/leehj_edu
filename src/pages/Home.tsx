@@ -496,7 +496,7 @@ export default function Home() {
       </section>
 
       {/* News & Events Preview */}
-      <section className="relative bg-gradient-to-b from-[#7a0f2c] via-[#660a24] to-[#4f071c] py-24 text-white">
+      <section className="relative bg-gradient-to-b from-[#7a0f2c] via-[#660a24] to-[#4f071c] py-24 text-white lg:-mt-24">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
