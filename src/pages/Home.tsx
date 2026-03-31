@@ -483,7 +483,7 @@ export default function Home() {
                 </Link>
               </div>
 
-              <div className="mt-8 hidden w-full lg:block">
+              <div className="mt-8 hidden w-full lg:block lg:w-[860px] lg:max-w-[calc(100vw-64px)]">
                 <KPISection />
               </div>
             </motion.div>

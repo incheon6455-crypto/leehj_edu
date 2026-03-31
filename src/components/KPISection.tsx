@@ -159,7 +159,7 @@ export function KPISection() {
                 <card.icon size={16} className="md:w-[22px] md:h-[22px]" />
               </div>
               <div>
-                <p className="text-xs font-medium text-slate-500 mb-0.5 max-md:text-[9px] max-md:leading-tight max-md:text-center">{card.label}</p>
+                <p className="text-xs font-medium text-slate-500 mb-0.5 md:whitespace-nowrap max-md:text-[9px] max-md:leading-tight max-md:text-center">{card.label}</p>
                 <p className="text-2xl font-bold text-slate-900 max-md:text-base max-md:leading-none max-md:text-center">
                   <CountUp value={card.value} />
                 </p>
