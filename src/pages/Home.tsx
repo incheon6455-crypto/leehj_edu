@@ -465,7 +465,7 @@ export default function Home() {
               transition={{ duration: 0.8 }}
               className="order-2 flex flex-col justify-center px-6 py-10 text-left sm:px-10 lg:col-start-2 lg:px-12"
             >
-              <span className="inline-block px-4 py-1.5 rounded-full bg-burgundy/10 text-burgundy text-sm font-bold mb-6 whitespace-nowrap">
+              <span className="inline-flex w-fit items-center rounded-full bg-burgundy/10 px-3 py-1 text-xs font-bold text-burgundy md:text-sm mb-6 whitespace-nowrap">
                 제22대 교육감 예비후보
               </span>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900 leading-[1.3] mb-8">
