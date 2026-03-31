@@ -457,7 +457,7 @@ export default function Home() {
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
-              className="flex flex-col justify-center px-6 py-10 text-left sm:px-10 lg:px-12"
+              className="order-2 flex flex-col justify-center px-6 py-10 text-left sm:px-10 lg:col-start-2 lg:px-12"
             >
               <span className="inline-block px-4 py-1.5 rounded-full bg-burgundy/10 text-burgundy text-sm font-bold mb-6 whitespace-nowrap">
                 제22대 교육감 예비후보
