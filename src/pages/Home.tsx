@@ -430,7 +430,7 @@ export default function Home() {
   return (
     <div className="space-y-24 pb-24">
       {/* Hero Section */}
-      <section className="relative mt-20 min-h-[60vh] lg:min-h-[920px] flex flex-col lg:items-center pt-20 overflow-hidden bg-white">
+      <section className="relative mt-20 min-h-[60vh] lg:min-h-[800px] flex flex-col lg:items-center pt-20 lg:pt-0 overflow-hidden bg-white">
         <div className="order-1 w-full grid grid-cols-1 lg:absolute lg:inset-0 lg:grid-cols-2">
           <div className="relative h-[30vh] lg:h-[800px] bg-burgundy/[0.04] overflow-hidden">
             {heroImages.length === 0 && !heroImagesResolved ? (
