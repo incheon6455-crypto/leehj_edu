@@ -491,7 +491,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="hidden lg:block bg-white pb-8">
+      <section className="hidden lg:block lg:-mt-24 bg-white pb-8">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <KPISection />
         </div>
