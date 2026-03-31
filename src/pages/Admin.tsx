@@ -159,6 +159,19 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+function dataUrlToBlob(dataUrl: string) {
+  const [meta, encoded] = dataUrl.split(',');
+  if (!meta || !encoded) throw new Error('유효하지 않은 이미지 데이터입니다.');
+  const mimeMatch = meta.match(/data:(.*?);base64/);
+  const mimeType = mimeMatch?.[1] || 'image/jpeg';
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
+
 async function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -752,6 +765,31 @@ export default function Admin() {
     }
   };
 
+  const handleHeroDownload = (slot: number) => {
+    const index = slot - 1;
+    const saved = heroImages[index];
+    if (!saved?.dataUrl) {
+      setError('다운로드할 업로드 이미지가 없습니다.');
+      return;
+    }
+
+    try {
+      const blob = dataUrlToBlob(saved.dataUrl);
+      const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = `hero_slot_${slot}.${ext}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(downloadUrl);
+      setError('');
+    } catch {
+      setError('이미지 다운로드에 실패했습니다.');
+    }
+  };
+
   const handleHeroDelete = async (slot: number) => {
     const index = slot - 1;
     setDeletingHeroSlot(slot);
@@ -1279,6 +1317,14 @@ export default function Admin() {
                         className="flex-1 rounded-lg bg-burgundy px-3 py-2 text-xs font-bold text-white hover:bg-burgundy-dark transition disabled:opacity-60"
                       >
                         {savingHeroSlot === slot ? '업로드 중...' : '업로드'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleHeroDownload(slot)}
+                        disabled={!saved}
+                        className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
+                      >
+                        다운로드
                       </button>
                       <button
                         type="button"
