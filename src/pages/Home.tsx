@@ -430,39 +430,29 @@ export default function Home() {
   return (
     <div className="space-y-24 pb-24">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-white pt-24 pb-10 lg:pt-28 lg:pb-14">
-        <div className="relative z-20 mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 overflow-hidden border border-burgundy/10 bg-white lg:grid-cols-2">
-            <div className="relative min-h-[380px] overflow-hidden bg-burgundy/[0.04] sm:min-h-[460px] lg:min-h-[560px]">
-              {heroImages.length === 0 && !heroImagesResolved ? (
-                <div className="absolute inset-0 bg-burgundy/[0.06]" />
-              ) : (
-                heroImages.map((image, index) => (
-                  <div
-                    key={`${image}-${index}`}
-                    className="absolute inset-0 bg-contain bg-center bg-no-repeat transition-opacity duration-700"
-                    style={{
-                      backgroundImage: `url(${image})`,
-                      opacity: heroImageIndex === index ? 1 : 0,
-                    }}
-                  />
-                ))
-              )}
-              <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
-                {heroImages.map((image, index) => (
-                  <button
-                    type="button"
-                    key={`${image}-dot`}
-                    onClick={() => setHeroImageIndex(index)}
-                    aria-label={`${index + 1}번 배경 이미지 보기`}
-                    className={`h-3.5 w-3.5 rounded-full border border-burgundy/60 transition-colors cursor-pointer ${
-                      heroImageIndex === index ? 'bg-burgundy' : 'bg-transparent'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-
+      <section className="relative min-h-[60vh] flex flex-col lg:items-center pt-20 overflow-hidden bg-white">
+        <div className="order-1 w-full grid grid-cols-1 lg:absolute lg:inset-0 lg:grid-cols-2">
+          <div className="relative h-[30vh] lg:h-[900px] bg-burgundy/[0.04] overflow-hidden">
+            {heroImages.length === 0 && !heroImagesResolved ? (
+              <div className="absolute inset-0 bg-burgundy/[0.06]" />
+            ) : (
+              heroImages.map((image, index) => (
+                <div
+                  key={`${image}-${index}`}
+                  className="absolute inset-0 bg-contain lg:bg-[length:auto_900px] bg-center bg-no-repeat transition-opacity duration-700"
+                  style={{
+                    backgroundImage: `url(${image})`,
+                    opacity: heroImageIndex === index ? 1 : 0,
+                  }}
+                />
+              ))
+            )}
+          </div>
+          <div className="hidden h-[30vh] lg:block lg:h-[900px] bg-burgundy/[0.02]" />
+        </div>
+        
+        <div className="order-3 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center lg:-translate-y-[100px]">
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
