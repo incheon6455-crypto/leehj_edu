@@ -482,18 +482,16 @@ export default function Home() {
                   후보자 소개
                 </Link>
               </div>
+
+              <div className="mt-8 hidden w-full lg:block">
+                <KPISection />
+              </div>
             </motion.div>
           </div>
 
           <div className="relative z-20 mx-auto mt-8 w-full max-w-[980px] sm:px-2 lg:hidden">
             <KPISection />
           </div>
-        </div>
-      </section>
-
-      <section className="hidden lg:block lg:-mt-24 bg-white pb-8">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <KPISection />
         </div>
       </section>
 
